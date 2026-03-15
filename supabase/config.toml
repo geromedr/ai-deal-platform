@@ -492,3 +492,36 @@ entrypoint = "./functions/get-deal-timeline/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/get-deal-timeline/*.html" ]
+
+[functions.email-agent]
+enabled = true
+verify_jwt = true
+import_map = "./functions/email-agent/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/email-agent/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/email-agent/*.html" ]
+
+[functions.agent-orchestrator]
+enabled = true
+verify_jwt = true
+import_map = "./functions/agent-orchestrator/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/agent-orchestrator/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/agent-orchestrator/*.html" ]
+
+[functions.deal-intelligence]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deal-intelligence/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/deal-intelligence/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/deal-intelligence/*.html" ]
