@@ -1,23 +1,106 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL")
+const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+
+if (!supabaseUrl) throw new Error("SUPABASE_URL not set")
+if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY not set")
+
+const supabase = createClient(supabaseUrl, serviceKey)
+
 serve(async (req) => {
 
-  const { deal_id } = await req.json()
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "Method not allowed" }),
+      { status: 405 }
+    )
+  }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-  )
+  try {
 
-  const { data, error } = await supabase
-    .from("deals")
-    .select("*")
-    .eq("id", deal_id)
-    .single()
+    const { deal_id } = await req.json()
 
-  return new Response(
-    JSON.stringify(data),
-    { headers: { "Content-Type": "application/json" } }
-  )
+    if (!deal_id) {
+      return new Response(
+        JSON.stringify({ error: "Missing deal_id" }),
+        { status: 400 }
+      )
+    }
+
+    console.log("Fetching context for deal:", deal_id)
+
+    const [
+      dealResult,
+      tasksResult,
+      communicationsResult,
+      financialsResult,
+      risksResult
+    ] = await Promise.all([
+
+      supabase
+        .from("deals")
+        .select("*")
+        .eq("id", deal_id)
+        .single(),
+
+      supabase
+        .from("tasks")
+        .select("*")
+        .eq("deal_id", deal_id),
+
+      supabase
+        .from("communications")
+        .select("*")
+        .eq("deal_id", deal_id)
+        .order("sent_at", { ascending: false })
+        .limit(20),
+
+      supabase
+        .from("financial_snapshots")
+        .select("*")
+        .eq("deal_id", deal_id)
+        .order("created_at", { ascending: false })
+        .limit(5),
+
+      supabase
+        .from("risks")
+        .select("*")
+        .eq("deal_id", deal_id)
+
+    ])
+
+    const context = {
+      deal: dealResult.data,
+      tasks: tasksResult.data,
+      communications: communicationsResult.data,
+      financials: financialsResult.data,
+      risks: risksResult.data
+    }
+
+    // log context request
+    await supabase.from("ai_actions").insert({
+      deal_id,
+      agent: "get-deal-context",
+      action: "context_requested",
+      payload: {}
+    })
+
+    return new Response(
+      JSON.stringify(context),
+      { headers: { "Content-Type": "application/json" } }
+    )
+
+  } catch (error) {
+
+    console.error("CONTEXT AGENT ERROR:", error)
+
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500 }
+    )
+
+  }
+
 })

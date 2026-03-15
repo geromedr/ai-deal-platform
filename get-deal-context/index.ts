@@ -7,36 +7,56 @@ serve(async (req) => {
 
     const { deal_id } = await req.json()
 
+    if (!deal_id) {
+      return new Response(
+        JSON.stringify({ error: "Missing deal_id" }),
+        { status: 400 }
+      )
+    }
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     )
 
-    const { data: deal } = await supabase
-      .from("deals")
-      .select("*")
-      .eq("id", deal_id)
-      .single()
+    const [
+      dealResult,
+      tasksResult,
+      communicationsResult,
+      financialsResult,
+      risksResult
+    ] = await Promise.all([
 
-    const { data: tasks } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("deal_id", deal_id)
+      supabase
+        .from("deals")
+        .select("*")
+        .eq("id", deal_id)
+        .single(),
 
-    const { data: communications } = await supabase
-      .from("communications")
-      .select("*")
-      .eq("deal_id", deal_id)
+      supabase
+        .from("tasks")
+        .select("*")
+        .eq("deal_id", deal_id),
 
-    const { data: financials } = await supabase
-      .from("financial_snapshots")
-      .select("*")
-      .eq("deal_id", deal_id)
+      supabase
+        .from("communications")
+        .select("*")
+        .eq("deal_id", deal_id)
+        .order("created_at", { ascending: false })
+        .limit(20),
 
-    const { data: risks } = await supabase
-      .from("risks")
-      .select("*")
-      .eq("deal_id", deal_id)
+      supabase
+        .from("financial_snapshots")
+        .select("*")
+        .eq("deal_id", deal_id)
+        .order("created_at", { ascending: false })
+        .limit(5),
+
+      supabase
+        .from("risks")
+        .select("*")
+        .eq("deal_id", deal_id)
+    ])
 
     await supabase.from("ai_actions").insert({
       deal_id,
@@ -45,21 +65,23 @@ serve(async (req) => {
       payload: {}
     })
 
-    return new Response(JSON.stringify({
-      deal,
-      tasks,
-      communications,
-      financials,
-      risks
-    }), {
-      headers: { "Content-Type": "application/json" }
-    })
+    return new Response(
+      JSON.stringify({
+        deal: dealResult.data,
+        tasks: tasksResult.data,
+        communications: communicationsResult.data,
+        financials: financialsResult.data,
+        risks: risksResult.data
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    )
 
   } catch (err) {
 
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500
-    })
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500 }
+    )
 
   }
 
