@@ -1,5 +1,10 @@
 # SUPABASE_WORKFLOWS.md
 
+Referenced by:
+
+AI_SYSTEM_PROMPT.md
+DEVELOPMENT_AUTOMATION_WORKFLOW.md
+
 ## Purpose
 
 This document defines the **standard workflows for interacting with Supabase infrastructure** in the AI Deal Platform repository.
