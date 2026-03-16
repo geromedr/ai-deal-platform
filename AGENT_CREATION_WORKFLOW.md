@@ -1,5 +1,10 @@
 # AGENT_CREATION_WORKFLOW.md
 
+Referenced by:
+
+AI_SYSTEM_PROMPT.md
+DEVELOPMENT_AUTOMATION_WORKFLOW.md
+
 ## Purpose
 
 This document defines the **standard workflow for creating new agents** in the AI Deal Platform.
