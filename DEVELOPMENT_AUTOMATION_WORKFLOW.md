@@ -34,6 +34,9 @@ maintaining documentation • troubleshooting errors
 • GitHub -- version control\
 • Terminal / CLI -- command execution
 
+Supabase-specific operations are defined in SUPABASE_WORKFLOWS.md.
+Agent creation standards are defined in AGENT_CREATION_WORKFLOW.md.
+
 ------------------------------------------------------------------------
 
 # AI-Assisted Development Flow
