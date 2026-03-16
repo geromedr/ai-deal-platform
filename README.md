@@ -55,6 +55,17 @@ DEVELOPMENT_AUTOMATION_WORKFLOW.md
 
 These define the operational constraints for AI-assisted development.
 - identify development opportunities
+
+## AI Development Workflows
+
+AI tools operating on this repository must follow the defined development workflows:
+
+SUPABASE_WORKFLOWS.md  
+AGENT_CREATION_WORKFLOW.md  
+
+These documents define the correct procedures for creating agents,
+modifying edge functions, updating documentation, and managing
+Supabase infrastructure.
 - analyze planning constraints
 - estimate project feasibility
 - rank opportunities
