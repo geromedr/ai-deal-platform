@@ -43,6 +43,17 @@ ai-deal-platform/
 The long‑term goal is an **AI-powered development acquisition engine** that can:
 
 - scan NSW property markets
+
+# AI Development Rules
+
+AI tools operating on this repository must consult the following
+governance documents before performing work.
+
+AI_SYSTEM_PROMPT.md  
+AI_BUILD_RULES.md  
+DEVELOPMENT_AUTOMATION_WORKFLOW.md  
+
+These define the operational constraints for AI-assisted development.
 - identify development opportunities
 - analyze planning constraints
 - estimate project feasibility
