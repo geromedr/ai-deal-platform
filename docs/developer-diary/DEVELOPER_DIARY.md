@@ -1,5 +1,5 @@
 
-# DEVELOPER_DIARY.md
+# DEVELOPER_DIARY 001.md
 
 ## Entry 001 — Establishing the AI‑Governed Development Framework
 
