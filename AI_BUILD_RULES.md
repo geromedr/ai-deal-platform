@@ -1,5 +1,18 @@
 # AI_BUILD_RULES.md
 
+# AI Build Rules
+
+IMPORTANT
+
+Any AI system assisting development in this repository must read:
+
+AI_SYSTEM_PROMPT.md  
+ARCHITECTURE.md  
+AGENTS.md  
+API.md  
+
+before generating or modifying code.
+
 ## Purpose
 
 This document defines the operational rules for AI-assisted development
