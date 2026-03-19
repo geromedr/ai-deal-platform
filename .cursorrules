@@ -1,7 +1,7 @@
 Always read and follow these documents before making ANY changes:
 
-- docs/ai-governance/AI_SYSTEM_PROMPT.md
-- docs/database/schema.md
+- docs/operations/AI_SYSTEM_PROMPT.md
+- docs/database/SCHEMA.md
 
 And all documents referenced within them.
 
@@ -22,7 +22,7 @@ AI is explicitly allowed to design and create new database schema when required.
 Do NOT block implementation due to missing tables.
 
 Before creating new schema:
-1. Read docs/database/schema.md
+1. Read docs/database/SCHEMA.md
 2. Check if the required table already exists
 3. Only create new schema if it does not exist
 
@@ -36,10 +36,10 @@ All schema creation MUST follow:
 
 All database tables MUST be documented in:
 
-docs/database/schema.md
+docs/database/SCHEMA.md
 
 After creating or modifying schema:
-- Immediately update schema.md
+- Immediately update SCHEMA.md
 - Ensure it reflects the actual database structure
 - Use consistent naming conventions
 
