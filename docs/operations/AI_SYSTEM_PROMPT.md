@@ -1,4 +1,3 @@
-
 # AI_SYSTEM_PROMPT.md
 
 ## Purpose
@@ -7,28 +6,26 @@ This document provides the **primary operating instructions for any AI system as
 
 If you are an AI model (ChatGPT, Codex, Cursor, Claude, or similar) working on this project, you must read and follow the governance documents listed below **before performing any development tasks**.
 
-These documents define the architecture, rules, and workflow of the AI Deal Platform.
-
 ---
 
 # Required Documents (Read First)
 
 Before proposing, generating, or modifying code you must read:
 
-ARCHITECTURE.md  
-SYSTEM_ARCHITECTURE_DIAGRAM.md  
-AGENT_INTERACTION_MAP.md  
+docs/architecture/ARCHITECTURE.md  
+docs/architecture/SYSTEM_ARCHITECTURE_DIAGRAM.md  
+docs/architecture/AGENT_INTERACTION_MAP.md  
 
-AGENTS.md  
-API.md  
-PROJECT_STATE.md  
-DECISIONS.md  
+docs/system/AGENTS.md  
+docs/system/API.md  
+docs/system/PROJECT_STATE.md  
+docs/system/DECISIONS.md  
 
-AI_BUILD_RULES.md  
-DEVELOPMENT_AUTOMATION_WORKFLOW.md  
-AI_AGENT_TEMPLATE.md  
-SUPABASE_WORKFLOWS.md
-AGENT_CREATION_WORKFLOW.md
+docs/ai-governance/AI_BUILD_RULES.md  
+docs/ai-governance/DEVELOPMENT_AUTOMATION_WORKFLOW.md  
+docs/ai-governance/AI_AGENT_TEMPLATE.md  
+docs/ai-governance/SUPABASE_WORKFLOWS.md  
+docs/ai-governance/AGENT_CREATION_WORKFLOW.md  
 
 These documents define:
 
@@ -49,9 +46,9 @@ AI tools must not assume architecture or system behavior that conflicts with the
 
 If a requested change conflicts with existing documentation, the AI must:
 
-1. explain the conflict
-2. propose a solution
-3. wait for developer approval
+1. explain the conflict  
+2. propose a solution  
+3. wait for developer approval  
 
 ---
 
@@ -78,18 +75,18 @@ Required updates:
 
 When adding an agent:
 
-AGENTS.md  
-API.md  
-PROJECT_STATE.md  
+docs/system/AGENTS.md  
+docs/system/API.md  
+docs/system/PROJECT_STATE.md  
 
 When changing architecture:
 
-ARCHITECTURE.md  
-SYSTEM_ARCHITECTURE_DIAGRAM.md  
+docs/architecture/ARCHITECTURE.md  
+docs/architecture/SYSTEM_ARCHITECTURE_DIAGRAM.md  
 
 When introducing major design changes:
 
-DECISIONS.md
+docs/system/DECISIONS.md  
 
 ---
 
@@ -97,7 +94,7 @@ DECISIONS.md
 
 All new agents must follow the structure defined in:
 
-AI_AGENT_TEMPLATE.md
+docs/ai-governance/AI_AGENT_TEMPLATE.md
 
 Agents must include:
 
@@ -142,11 +139,11 @@ AI should assist by accelerating development while preserving architectural inte
 
 When asked to perform a development task the AI should:
 
-1. Review relevant architecture and governance documents.
-2. Propose a solution if the task affects system design.
-3. Implement changes following project templates.
-4. Update documentation as required.
-5. Provide a summary of changes.
+1. Review relevant architecture and governance documents.  
+2. Propose a solution if the task affects system design.  
+3. Implement changes following project templates.  
+4. Update documentation as required.  
+5. Provide a summary of changes.  
 
 ---
 
