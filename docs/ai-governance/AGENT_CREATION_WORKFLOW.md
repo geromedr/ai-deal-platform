@@ -2,8 +2,8 @@
 
 Referenced by:
 
-AI_SYSTEM_PROMPT.md
-DEVELOPMENT_AUTOMATION_WORKFLOW.md
+docs/ai-governance/AI_SYSTEM_PROMPT.md  
+docs/ai-governance/DEVELOPMENT_AUTOMATION_WORKFLOW.md  
 
 ## Purpose
 
@@ -19,9 +19,9 @@ Every agent must have a **single clear responsibility**.
 
 Examples:
 
-- retrieve zoning data
-- estimate development yield
-- analyse flood overlays
+- retrieve zoning data  
+- estimate development yield  
+- analyse flood overlays  
 
 ---
 
@@ -41,7 +41,7 @@ index.ts
 
 Follow the structure defined in:
 
-AI_AGENT_TEMPLATE.md
+docs/ai-governance/AI_AGENT_TEMPLATE.md
 
 ---
 
@@ -49,11 +49,11 @@ AI_AGENT_TEMPLATE.md
 
 Agent must include:
 
-- request validation
-- structured logging
-- clear error handling
-- database write logic
-- environment variable usage if required
+- request validation  
+- structured logging  
+- clear error handling  
+- database write logic  
+- environment variable usage if required  
 
 ---
 
@@ -89,13 +89,13 @@ Each agent must have a simple JSON payload used for testing.
 
 Whenever a new agent is created the following files must be updated:
 
-AGENTS.md  
-API.md  
-PROJECT_STATE.md
+docs/system/AGENTS.md  
+docs/system/API.md  
+docs/system/PROJECT_STATE.md  
 
 If the agent introduces architectural change:
 
-ARCHITECTURE.md must also be updated.
+docs/architecture/ARCHITECTURE.md must also be updated.
 
 ---
 
@@ -103,11 +103,11 @@ ARCHITECTURE.md must also be updated.
 
 AI should check:
 
-- documentation updated
-- schema consistency
-- error handling present
-- logging present
-- test payload present
+- documentation updated  
+- schema consistency  
+- error handling present  
+- logging present  
+- test payload present  
 
 ---
 
@@ -115,6 +115,6 @@ AI should check:
 
 Prepare commit summary explaining:
 
-- new agent purpose
-- new endpoints
-- documentation updates
+- new agent purpose  
+- new endpoints  
+- documentation updates  
