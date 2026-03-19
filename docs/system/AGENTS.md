@@ -27,6 +27,9 @@ Processes inbound emails and extracts site leads.
 ### log-communication
 Stores communication history.
 
+### test-agent
+Logs request payloads and returns a success response for testing.
+
 ## Planning Intelligence
 
 ### zoning-agent

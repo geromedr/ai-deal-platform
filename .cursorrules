@@ -1,0 +1,10 @@
+Always read and follow:
+
+docs/ai-governance/AI_SYSTEM_PROMPT.md
+
+And all referenced documents before making changes.
+
+All code must follow:
+- AGENT_CREATION_WORKFLOW.md
+- SUPABASE_WORKFLOWS.md
+- AI_BUILD_RULES.md

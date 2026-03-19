@@ -26,6 +26,24 @@ Response:
 "address_detected": true
 }
 
+Test agent example:
+
+POST /functions/v1/test-agent
+
+Request:
+
+{
+"deal_id": "test-deal-001",
+"message": "Run test-agent health check"
+}
+
+Response:
+
+{
+"status": "success",
+"agent": "test-agent"
+}
+
 ## Core Endpoints
 
 /email-agent  
@@ -37,4 +55,5 @@ Response:
 /fsr-agent  
 /heritage-agent  
 /yield-agent  
-/parcel-ranking-agent
+/parcel-ranking-agent  
+/test-agent

@@ -27,6 +27,9 @@ Deal Management
 - deal-agent
 - deal-intelligence
 
+Testing
+- test-agent
+
 ## In Progress
 
 - ranking improvements
