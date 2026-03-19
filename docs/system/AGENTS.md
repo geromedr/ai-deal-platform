@@ -60,6 +60,9 @@ Submits sites into the analysis pipeline.
 ### yield-agent
 Estimates development yield.
 
+### comparable-sales-agent
+Finds nearby comparable developments and estimates sale price per sqm.
+
 ### add-financial-snapshot
 Stores financial assumptions.
 

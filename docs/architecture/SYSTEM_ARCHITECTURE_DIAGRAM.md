@@ -2,17 +2,15 @@
 
 ## AI Deal Platform -- System Architecture
 
-This document provides a **visual and conceptual overview** of the AI
-Deal Platform architecture.
+This document provides a visual and conceptual overview of the AI Deal Platform architecture.
 
-It describes how agents, infrastructure, and data layers interact to
-produce development opportunity intelligence.
+It describes how agents, infrastructure, and data layers interact to produce development opportunity intelligence.
 
 ------------------------------------------------------------------------
 
 # High Level System Diagram
 
-``` mermaid
+```mermaid
 flowchart TD
 
 A[Data Sources] --> B[Discovery Layer]
@@ -31,9 +29,12 @@ D4 --> E
 D5 --> E
 
 E --> F[Yield Agent]
+E --> F2[Comparable Sales Agent]
 F --> G[Financial Snapshot Agent]
+F2 --> H2[Comparable Sales Tables]
 
 G --> H[Parcel Ranking Engine]
+H2 --> H
 
 H --> I[Ranked Development Opportunities]
 
@@ -44,7 +45,7 @@ I --> J[Developer / Investor Interface]
 
 # Infrastructure Architecture
 
-``` mermaid
+```mermaid
 flowchart LR
 
 User[Developer] --> VSCode[VS Code]
@@ -72,17 +73,17 @@ Responsible for bringing candidate development sites into the system.
 
 Sources may include:
 
-• inbound email leads\
-• real estate listings\
-• planning portal data\
-• developer submissions\
-• automated site scanning
+- inbound email leads
+- real estate listings
+- planning portal data
+- developer submissions
+- automated site scanning
 
 Agents:
 
--   email-agent
--   domain-discovery-agent
--   site-discovery-agent
+- email-agent
+- domain-discovery-agent
+- site-discovery-agent
 
 ------------------------------------------------------------------------
 
@@ -92,19 +93,19 @@ This layer retrieves planning controls and constraints for each site.
 
 Agents:
 
--   zoning-agent
--   flood-agent
--   height-agent
--   fsr-agent
--   heritage-agent
+- zoning-agent
+- flood-agent
+- height-agent
+- fsr-agent
+- heritage-agent
 
 Outputs:
 
-• zoning classification\
-• height limits\
-• FSR limits\
-• environmental overlays\
-• heritage restrictions
+- zoning classification
+- height limits
+- FSR limits
+- environmental overlays
+- heritage restrictions
 
 ------------------------------------------------------------------------
 
@@ -114,31 +115,32 @@ This layer estimates development potential.
 
 Agents:
 
--   yield-agent
--   add-financial-snapshot
+- yield-agent
+- comparable-sales-agent
+- add-financial-snapshot
 
 Outputs:
 
-• gross floor area (GFA)\
-• estimated unit count\
-• development revenue\
-• construction cost\
-• projected margin
+- gross floor area (GFA)
+- estimated unit count
+- development revenue
+- construction cost
+- projected margin
+- estimated sale price per sqm from nearby comparable developments
 
 ------------------------------------------------------------------------
 
 ## 4. Ranking Layer
 
-The ranking engine evaluates opportunities based on development
-viability.
+The ranking engine evaluates opportunities based on development viability.
 
 Example scoring inputs:
 
-• zoning flexibility\
-• site size\
-• yield potential\
-• planning constraints\
-• feasibility margin
+- zoning flexibility
+- site size
+- yield potential
+- planning constraints
+- feasibility margin
 
 Output:
 
@@ -148,20 +150,21 @@ Development opportunity score and ranking tier.
 
 # Database Architecture
 
-The database acts as the **system memory**.
+The database acts as the system memory.
 
 Key tables:
 
-• deals\
-• communications\
-• site_candidates\
-• planning_constraints\
-• yield_estimates\
-• financial_snapshots\
-• knowledge_documents
+- deals
+- communications
+- site_candidates
+- planning_constraints
+- yield_estimates
+- financial_snapshots
+- comparable_sales_estimates
+- comparable_sales_evidence
+- knowledge_documents
 
-Agents read and write to the database so intelligence accumulates over
-time.
+Agents read and write to the database so intelligence accumulates over time.
 
 ------------------------------------------------------------------------
 
@@ -169,13 +172,12 @@ time.
 
 AI is used primarily for:
 
-• interpreting unstructured data\
-• summarizing deal intelligence\
-• assisting with decision support\
-• generating reports
+- interpreting unstructured data
+- summarizing deal intelligence
+- assisting with decision support
+- generating reports
 
-AI does **not replace deterministic logic** for planning or financial
-calculations.
+AI does not replace deterministic logic for planning or financial calculations.
 
 ------------------------------------------------------------------------
 
@@ -211,20 +213,19 @@ The platform evolves into:
 
 **An AI-powered development acquisition engine** capable of:
 
-• scanning property markets\
-• identifying development opportunities\
-• analyzing planning constraints\
-• estimating feasibility\
-• ranking deals\
-• notifying investors
+- scanning property markets
+- identifying development opportunities
+- analyzing planning constraints
+- estimating feasibility
+- ranking deals
+- notifying investors
 
 ------------------------------------------------------------------------
 
 # Diagram Usage
 
-This document serves as a **visual reference for the system
-architecture** and should be updated whenever:
+This document serves as a visual reference for the system architecture and should be updated whenever:
 
-• new agents are added\
-• major pipelines change\
-• infrastructure architecture evolves
+- new agents are added
+- major pipelines change
+- infrastructure architecture evolves

@@ -157,3 +157,35 @@ The goal of these instructions is to ensure AI-assisted development remains:
 • scalable  
 
 while allowing rapid development of the AI Deal Platform.
+
+## DATABASE SCHEMA AUTHORITY
+
+The AI is permitted to design and create new database tables when:
+
+- Required data does not exist in the current schema
+- The new table supports core system capabilities (deal analysis, intelligence, agents, workflows)
+
+Rules:
+
+- Use normalized, production-grade schema design
+- Prefer JSONB for flexible AI-generated data
+- Include:
+  - id (uuid, primary key)
+  - created_at (timestamp, default now())
+  - updated_at (timestamp)
+- Use clear, descriptive table names
+- Avoid duplication of existing tables
+
+All schema changes must be implemented via:
+- SQL migration files
+- Supabase migration workflow
+
+The AI must NOT ask for permission to create schema if it is clearly required.
+
+## CONTEXT LOADING
+
+Before performing any database-related work, the AI must:
+
+1. Read docs/database/schema.md
+2. Validate whether required tables exist
+3. Only create new schema if not present

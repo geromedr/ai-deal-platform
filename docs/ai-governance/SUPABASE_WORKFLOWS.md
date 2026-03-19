@@ -122,3 +122,25 @@ docs/system/PROJECT_STATE.md
 AI may prepare deployment commands but must **not deploy automatically**.
 
 Deployment requires developer approval.
+
+## CREATE TABLE WORKFLOW
+
+When a required table does not exist:
+
+1. Design schema
+2. Generate SQL migration
+3. Apply via Supabase migration system
+
+Example:
+
+create table comparable_sales (
+  id uuid primary key default gen_random_uuid(),
+  deal_id uuid,
+  address text,
+  sale_price numeric,
+  sale_date date,
+  metadata jsonb,
+  created_at timestamp default now()
+);
+
+4. Update documentation if needed

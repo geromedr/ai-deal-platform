@@ -34,3 +34,12 @@ AI used for:
 - decision support
 
 Core logic remains deterministic.
+
+## Comparable Sales Schema
+
+Decision: store comparable sales outputs in dedicated tables.
+
+Reason:
+- avoids overloading financial snapshot records
+- preserves estimate history for each deal
+- supports normalized comparable evidence rows with JSONB context

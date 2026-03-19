@@ -44,6 +44,29 @@ Response:
 "agent": "test-agent"
 }
 
+Comparable sales example:
+
+POST /functions/v1/comparable-sales-agent
+
+Request:
+
+{
+"deal_id": "test-deal-001",
+"radius_km": 5,
+"dwelling_type": "apartment"
+}
+
+Response:
+
+{
+"success": true,
+"deal_id": "test-deal-001",
+"estimate_id": "uuid",
+"estimated_sale_price_per_sqm": 12500,
+"currency": "AUD",
+"comparables": []
+}
+
 ## Core Endpoints
 
 /email-agent  
@@ -56,4 +79,5 @@ Response:
 /heritage-agent  
 /yield-agent  
 /parcel-ranking-agent  
-/test-agent
+/test-agent  
+/comparable-sales-agent

@@ -18,6 +18,7 @@ Planning Intelligence
 
 Feasibility
 - yield-agent
+- comparable-sales-agent
 
 Discovery
 - email-agent

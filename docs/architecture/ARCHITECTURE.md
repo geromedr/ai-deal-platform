@@ -48,6 +48,7 @@ Estimates development potential:
 - revenue
 - build cost
 - profit
+- sale price per sqm from comparable developments
 
 ### Ranking Layer
 Evaluates opportunities based on:
