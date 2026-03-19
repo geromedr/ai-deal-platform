@@ -2,8 +2,8 @@
 
 Referenced by:
 
-AI_SYSTEM_PROMPT.md
-DEVELOPMENT_AUTOMATION_WORKFLOW.md
+docs/ai-governance/AI_SYSTEM_PROMPT.md  
+docs/ai-governance/DEVELOPMENT_AUTOMATION_WORKFLOW.md  
 
 ## Purpose
 
@@ -11,10 +11,10 @@ This document defines the **standard workflows for interacting with Supabase inf
 
 These workflows ensure AI-assisted development remains:
 
-- consistent
-- predictable
-- safe
-- well documented
+- consistent  
+- predictable  
+- safe  
+- well documented  
 
 AI systems working with this repository must follow the procedures defined here.
 
@@ -32,15 +32,15 @@ index.ts
 
 3. Follow the structure defined in:
 
-AI_AGENT_TEMPLATE.md
+docs/ai-governance/AI_AGENT_TEMPLATE.md
 
 4. Ensure the function includes:
 
-- request validation
-- structured logging
-- error handling
-- database writes
-- environment variable usage
+- request validation  
+- structured logging  
+- error handling  
+- database writes  
+- environment variable usage  
 
 5. Add a **test payload**.
 
@@ -48,9 +48,9 @@ AI_AGENT_TEMPLATE.md
 
 Required doc updates:
 
-AGENTS.md  
-API.md  
-PROJECT_STATE.md
+docs/system/AGENTS.md  
+docs/system/API.md  
+docs/system/PROJECT_STATE.md  
 
 ---
 
@@ -58,20 +58,20 @@ PROJECT_STATE.md
 
 Steps:
 
-1. Review existing code.
-2. Preserve input/output schema unless change approved.
-3. Maintain logging format.
-4. Maintain error response format.
-5. Update tests if behaviour changes.
-6. Update documentation where necessary.
+1. Review existing code  
+2. Preserve input/output schema unless change approved  
+3. Maintain logging format  
+4. Maintain error response format  
+5. Update tests if behaviour changes  
+6. Update documentation where necessary  
 
 ---
 
 # Workflow 3 — Create SQL Migration
 
-1. Generate migration SQL.
-2. Explain schema change.
-3. Wait for developer approval before execution.
+1. Generate migration SQL  
+2. Explain schema change  
+3. Wait for developer approval before execution  
 
 AI must **never automatically modify production schema**.
 
@@ -83,14 +83,14 @@ Whenever endpoints change:
 
 Update:
 
-API.md
+docs/system/API.md  
 
 Include:
 
-- endpoint path
-- request schema
-- response schema
-- example payload
+- endpoint path  
+- request schema  
+- response schema  
+- example payload  
 
 ---
 
@@ -111,9 +111,9 @@ Example:
 
 After creating an agent AI must update:
 
-AGENTS.md  
-API.md  
-PROJECT_STATE.md
+docs/system/AGENTS.md  
+docs/system/API.md  
+docs/system/PROJECT_STATE.md  
 
 ---
 
