@@ -15,236 +15,318 @@ type CandidateRow = {
   discovery_score?: number | null
 }
 
-function parseNumberLoose(value: unknown): number | null {
-  if (!value) return null
-  const cleaned = String(value).replace(/[^0-9.\-]/g, "")
-  const num = Number(cleaned)
-  return Number.isFinite(num) ? num : null
+type RankingFactor = {
+  key:
+    | "zoning_flexibility"
+    | "fsr_potential"
+    | "height_potential"
+    | "site_size"
+    | "estimated_yield"
+    | "financial_margin"
+    | "constraint_adjustment"
+  label: string
+  weight: number
+  value: number
+  contribution: number
+  summary: string
 }
 
-function scoreCandidate(row: CandidateRow) {
+type RankingResult = {
+  score: number
+  tier: "A" | "B" | "C"
+  reason: string
+  factors: RankingFactor[]
+}
 
-  let score = 0
-  const reasons: string[] = []
+const FACTOR_WEIGHTS = {
+  zoning_flexibility: 22,
+  fsr_potential: 18,
+  height_potential: 14,
+  site_size: 14,
+  estimated_yield: 18,
+  financial_margin: 14,
+  constraint_adjustment: 10
+} as const
 
-  const zoning = (row.zoning || "").toUpperCase()
-  const flood = (row.flood_risk || "").toLowerCase()
-  const heritage = (row.heritage_status || "").toLowerCase()
-  const propertyType = (row.property_type || "").toLowerCase()
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  })
+}
 
-  const landArea = row.land_area ?? null
-  const fsr = parseNumberLoose(row.fsr)
-  const height = parseNumberLoose(row.height_limit)
-  const units = row.estimated_units ?? null
-  const profit = row.estimated_profit ?? null
+function parseNumberLoose(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null
+  const cleaned = String(value).replace(/[^0-9.\-]/g, "")
+  const parsed = Number(cleaned)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
-  /*
-  LAND AREA
-  */
+function clamp(value: number, min = 0, max = 1) {
+  return Math.min(max, Math.max(min, value))
+}
 
-  if (landArea !== null) {
+function buildFactor(
+  key: RankingFactor["key"],
+  label: string,
+  weight: number,
+  value: number,
+  summary: string
+): RankingFactor {
+  const boundedValue = clamp(value)
 
-    if (landArea >= 2000) {
-      score += 4
-      reasons.push("Very large site")
-    }
+  return {
+    key,
+    label,
+    weight,
+    value: boundedValue,
+    contribution: Number((boundedValue * weight).toFixed(2)),
+    summary
+  }
+}
 
-    else if (landArea >= 1200) {
-      score += 3
-      reasons.push("Large development site")
-    }
+function scoreZoning(zoningRaw: string | null | undefined) {
+  const zoning = (zoningRaw || "").trim().toUpperCase()
 
-    else if (landArea >= 800) {
-      score += 2
-      reasons.push("Decent development block")
-    }
+  if (!zoning) return { value: 0.2, summary: "No zoning evidence available" }
+  if (zoning.startsWith("R4")) return { value: 1, summary: `High-density zoning ${zoning}` }
+  if (zoning.startsWith("MU")) return { value: 0.95, summary: `Mixed-use zoning ${zoning}` }
+  if (zoning.startsWith("R3")) return { value: 0.8, summary: `Medium-density zoning ${zoning}` }
+  if (zoning.startsWith("B")) return { value: 0.65, summary: `Business zoning ${zoning}` }
+  if (zoning.startsWith("R2")) return { value: 0.35, summary: `Lower-density zoning ${zoning}` }
 
+  return { value: 0.25, summary: `Limited zoning flexibility ${zoning}` }
+}
+
+function scoreFsr(fsrRaw: string | null | undefined) {
+  const fsr = parseNumberLoose(fsrRaw)
+
+  if (fsr === null) return { value: 0.2, summary: "FSR not yet defined" }
+  if (fsr >= 3) return { value: 1, summary: `Excellent FSR potential ${fsr}:1` }
+  if (fsr >= 2) return { value: 0.85, summary: `Strong FSR potential ${fsr}:1` }
+  if (fsr >= 1.5) return { value: 0.65, summary: `Useful FSR potential ${fsr}:1` }
+  if (fsr >= 1) return { value: 0.45, summary: `Moderate FSR potential ${fsr}:1` }
+
+  return { value: 0.2, summary: `Constrained FSR potential ${fsr}:1` }
+}
+
+function scoreHeight(heightRaw: string | null | undefined) {
+  const height = parseNumberLoose(heightRaw)
+
+  if (height === null) return { value: 0.2, summary: "Height controls not yet defined" }
+  if (height >= 24) return { value: 1, summary: `Excellent height capacity ${height}m` }
+  if (height >= 18) return { value: 0.8, summary: `Strong height capacity ${height}m` }
+  if (height >= 12) return { value: 0.55, summary: `Moderate height capacity ${height}m` }
+  if (height >= 9) return { value: 0.35, summary: `Limited height capacity ${height}m` }
+
+  return { value: 0.15, summary: `Low height capacity ${height}m` }
+}
+
+function scoreSiteSize(landArea: number | null | undefined) {
+  if (landArea === null || landArea === undefined) {
+    return { value: 0.2, summary: "Site area unavailable" }
   }
 
-  /*
-  ZONING
-  */
+  if (landArea >= 2500) return { value: 1, summary: `Large site ${landArea}sqm` }
+  if (landArea >= 1500) return { value: 0.8, summary: `Strong site size ${landArea}sqm` }
+  if (landArea >= 1000) return { value: 0.6, summary: `Usable site size ${landArea}sqm` }
+  if (landArea >= 700) return { value: 0.4, summary: `Moderate site size ${landArea}sqm` }
 
-  if (zoning.startsWith("R4")) {
-    score += 5
-    reasons.push("High density zoning")
+  return { value: 0.2, summary: `Small site ${landArea}sqm` }
+}
+
+function scoreYield(estimatedUnits: number | null | undefined) {
+  if (estimatedUnits === null || estimatedUnits === undefined) {
+    return { value: 0.2, summary: "Estimated yield unavailable" }
   }
 
-  else if (zoning.startsWith("R3")) {
-    score += 4
-    reasons.push("Medium density zoning")
+  if (estimatedUnits >= 50) return { value: 1, summary: `High yield ${estimatedUnits} units` }
+  if (estimatedUnits >= 30) return { value: 0.8, summary: `Strong yield ${estimatedUnits} units` }
+  if (estimatedUnits >= 15) return { value: 0.6, summary: `Good yield ${estimatedUnits} units` }
+  if (estimatedUnits >= 8) return { value: 0.4, summary: `Moderate yield ${estimatedUnits} units` }
+
+  return { value: 0.2, summary: `Limited yield ${estimatedUnits} units` }
+}
+
+function scoreFinancialMargin(estimatedProfit: number | null | undefined) {
+  if (estimatedProfit === null || estimatedProfit === undefined) {
+    return { value: 0.25, summary: "Financial margin unavailable" }
   }
 
-  else if (zoning.startsWith("MU")) {
-    score += 5
-    reasons.push("Mixed use zoning")
+  if (estimatedProfit >= 20000000) return { value: 1, summary: "Exceptional projected margin" }
+  if (estimatedProfit >= 10000000) return { value: 0.8, summary: "Strong projected margin" }
+  if (estimatedProfit >= 5000000) return { value: 0.6, summary: "Positive projected margin" }
+  if (estimatedProfit > 0) return { value: 0.35, summary: "Modest projected margin" }
+
+  return { value: 0.1, summary: "Weak or negative projected margin" }
+}
+
+function scoreConstraints(
+  floodRiskRaw: string | null | undefined,
+  heritageStatusRaw: string | null | undefined,
+  propertyTypeRaw: string | null | undefined
+) {
+  const floodRisk = (floodRiskRaw || "").toLowerCase()
+  const heritageStatus = (heritageStatusRaw || "").toLowerCase()
+  const propertyType = (propertyTypeRaw || "").toLowerCase()
+
+  let value = 0.7
+  const notes: string[] = []
+
+  if (floodRisk.includes("high")) {
+    value -= 0.45
+    notes.push("high flood constraint")
+  } else if (floodRisk.includes("medium")) {
+    value -= 0.25
+    notes.push("medium flood constraint")
+  } else if (floodRisk.includes("low") || floodRisk.includes("not mapped")) {
+    notes.push("manageable flood profile")
   }
 
-  /*
-  FSR
-  */
-
-  if (fsr !== null) {
-
-    if (fsr >= 2.5) {
-      score += 5
-      reasons.push(`Excellent FSR ${fsr}`)
-    }
-
-    else if (fsr >= 1.5) {
-      score += 3
-      reasons.push(`Strong FSR ${fsr}`)
-    }
-
-    else if (fsr >= 1.0) {
-      score += 1
-      reasons.push(`Usable FSR ${fsr}`)
-    }
-
+  if (heritageStatus && !heritageStatus.includes("no")) {
+    value -= 0.3
+    notes.push("heritage constraint present")
+  } else {
+    notes.push("no heritage constraint")
   }
-
-  /*
-  HEIGHT
-  */
-
-  if (height !== null) {
-
-    if (height >= 18) {
-      score += 4
-      reasons.push(`Good height limit ${height}m`)
-    }
-
-    else if (height >= 12) {
-      score += 2
-      reasons.push(`Moderate height limit ${height}m`)
-    }
-
-  }
-
-  /*
-  YIELD
-  */
-
-  if (units !== null) {
-
-    if (units >= 30) {
-      score += 5
-      reasons.push(`Excellent yield ${units} units`)
-    }
-
-    else if (units >= 15) {
-      score += 3
-      reasons.push(`Good yield ${units} units`)
-    }
-
-    else if (units >= 8) {
-      score += 1
-      reasons.push(`Moderate yield ${units} units`)
-    }
-
-  }
-
-  /*
-  PROFIT
-  */
-
-  if (profit !== null) {
-
-    if (profit >= 15000000) {
-      score += 5
-      reasons.push("Very strong profit")
-    }
-
-    else if (profit >= 7000000) {
-      score += 3
-      reasons.push("Strong profit")
-    }
-
-    else if (profit >= 3000000) {
-      score += 1
-      reasons.push("Positive profit")
-    }
-
-  }
-
-  /*
-  EXISTING HOUSE
-  */
 
   if (propertyType.includes("house")) {
-    score += 1
-    reasons.push("Underutilised house site")
+    value += 0.1
+    notes.push("existing house suggests redevelopment upside")
   }
 
-  /*
-  FLOOD
-  */
-
-  if (flood.includes("high")) {
-    score -= 4
-    reasons.push("High flood constraint")
+  return {
+    value: clamp(value),
+    summary: notes.join(", ")
   }
+}
 
-  else if (flood.includes("medium")) {
-    score -= 2
-    reasons.push("Flood risk")
+function buildRanking(row: CandidateRow): RankingResult {
+  const zoningFactor = scoreZoning(row.zoning)
+  const fsrFactor = scoreFsr(row.fsr)
+  const heightFactor = scoreHeight(row.height_limit)
+  const siteSizeFactor = scoreSiteSize(row.land_area)
+  const yieldFactor = scoreYield(row.estimated_units)
+  const marginFactor = scoreFinancialMargin(row.estimated_profit)
+  const constraintFactor = scoreConstraints(
+    row.flood_risk,
+    row.heritage_status,
+    row.property_type
+  )
+
+  const factors: RankingFactor[] = [
+    buildFactor(
+      "zoning_flexibility",
+      "Zoning Flexibility",
+      FACTOR_WEIGHTS.zoning_flexibility,
+      zoningFactor.value,
+      zoningFactor.summary
+    ),
+    buildFactor(
+      "fsr_potential",
+      "FSR Potential",
+      FACTOR_WEIGHTS.fsr_potential,
+      fsrFactor.value,
+      fsrFactor.summary
+    ),
+    buildFactor(
+      "height_potential",
+      "Height Potential",
+      FACTOR_WEIGHTS.height_potential,
+      heightFactor.value,
+      heightFactor.summary
+    ),
+    buildFactor(
+      "site_size",
+      "Site Size",
+      FACTOR_WEIGHTS.site_size,
+      siteSizeFactor.value,
+      siteSizeFactor.summary
+    ),
+    buildFactor(
+      "estimated_yield",
+      "Estimated Yield",
+      FACTOR_WEIGHTS.estimated_yield,
+      yieldFactor.value,
+      yieldFactor.summary
+    ),
+    buildFactor(
+      "financial_margin",
+      "Financial Margin",
+      FACTOR_WEIGHTS.financial_margin,
+      marginFactor.value,
+      marginFactor.summary
+    ),
+    buildFactor(
+      "constraint_adjustment",
+      "Constraint Adjustment",
+      FACTOR_WEIGHTS.constraint_adjustment,
+      constraintFactor.value,
+      constraintFactor.summary
+    )
+  ]
+
+  const rawScore = factors.reduce((total, factor) => total + factor.contribution, 0)
+  const score = Math.round(rawScore)
+
+  let tier: RankingResult["tier"] = "C"
+  if (score >= 75) tier = "A"
+  else if (score >= 50) tier = "B"
+
+  const strongestFactors = [...factors]
+    .sort((left, right) => right.contribution - left.contribution)
+    .slice(0, 3)
+    .map((factor) => factor.summary)
+
+  return {
+    score,
+    tier,
+    reason: strongestFactors.join("; "),
+    factors
   }
-
-  else if (flood.includes("none") || flood.includes("low")) {
-    score += 1
-    reasons.push("No major flood constraint")
-  }
-
-  /*
-  HERITAGE
-  */
-
-  if (!heritage || heritage.includes("no")) {
-    score += 1
-    reasons.push("No heritage constraint")
-  }
-
-  else {
-    score -= 3
-    reasons.push("Heritage constraint")
-  }
-
-  /*
-  TIER
-  */
-
-  let tier = "C"
-
-  if (score >= 18) tier = "A"
-  else if (score >= 10) tier = "B"
-
-  return { score, tier, reasons }
-
 }
 
 serve(async (req) => {
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "Method not allowed" }, 405)
+  }
 
   try {
-
-    if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 })
-    }
-
-    let payload: any = {}
+    let payload: Record<string, unknown> = {}
 
     try {
       payload = await req.json()
-    } catch {}
+    } catch {
+      payload = {}
+    }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
-    const limit = payload.limit ?? 100
-    const onlyUnranked = payload.only_unranked ?? false
+    if (!supabaseUrl || !serviceKey) {
+      return jsonResponse({ error: "Supabase environment variables not set" }, 500)
+    }
 
-    let query =
-      `${supabaseUrl}/rest/v1/site_candidates` +
-      `?select=*`
+    if (
+      payload.limit !== undefined &&
+      !(typeof payload.limit === "number" && Number.isFinite(payload.limit) && payload.limit > 0)
+    ) {
+      return jsonResponse({ error: "limit must be a positive number" }, 400)
+    }
+
+    if (payload.only_unranked !== undefined && typeof payload.only_unranked !== "boolean") {
+      return jsonResponse({ error: "only_unranked must be a boolean" }, 400)
+    }
+
+    const limit = typeof payload.limit === "number" ? payload.limit : 100
+    const onlyUnranked = payload.only_unranked === true
+
+    console.log("parcel-ranking-agent v2 request received", {
+      limit,
+      only_unranked: onlyUnranked
+    })
+
+    let query = `${supabaseUrl}/rest/v1/site_candidates?select=*`
 
     if (onlyUnranked) {
       query += `&ranking_score=is.null`
@@ -259,15 +341,18 @@ serve(async (req) => {
       }
     })
 
-    const rows: CandidateRow[] = await res.json()
+    if (!res.ok) {
+      const errorText = await res.text()
+      throw new Error(`Failed to fetch site candidates: ${errorText}`)
+    }
 
-    const ranked = []
+    const rows: CandidateRow[] = await res.json()
+    const ranked: Array<Record<string, unknown>> = []
 
     for (const row of rows) {
+      const ranking = buildRanking(row)
 
-      const { score, tier, reasons } = scoreCandidate(row)
-
-      await fetch(
+      const updateRes = await fetch(
         `${supabaseUrl}/rest/v1/site_candidates?id=eq.${row.id}`,
         {
           method: "PATCH",
@@ -277,40 +362,52 @@ serve(async (req) => {
             "Authorization": `Bearer ${serviceKey}`
           },
           body: JSON.stringify({
-            ranking_score: score,
-            ranking_tier: tier,
-            ranking_reasons: reasons,
+            ranking_score: ranking.score,
+            ranking_tier: ranking.tier,
+            ranking_reasons: ranking.factors.map((factor) => ({
+              key: factor.key,
+              label: factor.label,
+              weight: factor.weight,
+              value: factor.value,
+              contribution: factor.contribution,
+              summary: factor.summary
+            })),
             ranking_run_at: new Date().toISOString()
           })
         }
       )
 
+      if (!updateRes.ok) {
+        const errorText = await updateRes.text()
+        throw new Error(`Failed to update ranked candidate ${row.id}: ${errorText}`)
+      }
+
       ranked.push({
         address: row.address,
-        ranking_score: score,
-        ranking_tier: tier
+        score: ranking.score,
+        tier: ranking.tier,
+        reason: ranking.reason,
+        ranking_score: ranking.score,
+        ranking_tier: ranking.tier
       })
-
     }
 
-    ranked.sort((a, b) => b.ranking_score - a.ranking_score)
+    ranked.sort((left, right) => Number(right.score) - Number(left.score))
 
-    return new Response(JSON.stringify({
+    console.log("parcel-ranking-agent v2 processing complete", {
+      processed: ranked.length
+    })
+
+    return jsonResponse({
       success: true,
       processed: ranked.length,
       top_sites: ranked.slice(0, 20)
-    }), {
-      headers: { "Content-Type": "application/json" }
     })
+  } catch (error) {
+    console.error("parcel-ranking-agent v2 failed", error)
 
+    return jsonResponse({
+      error: error instanceof Error ? error.message : "Unknown error"
+    }, 500)
   }
-
-  catch (error) {
-
-    return new Response(JSON.stringify({
-      error: error.message
-    }), { status: 500 })
-
-  }
-
 })

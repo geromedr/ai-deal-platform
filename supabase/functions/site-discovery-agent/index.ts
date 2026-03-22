@@ -15,12 +15,23 @@ type Candidate = {
   raw_data?: Record<string, unknown>
 }
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  })
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error"
+}
+
 serve(async (req) => {
 
   try {
 
     if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 })
+      return jsonResponse({ error: "Method not allowed" }, 405)
     }
 
     let payload
@@ -28,16 +39,16 @@ serve(async (req) => {
     try {
       payload = await req.json()
     } catch {
-      return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400 })
+      return jsonResponse({ error: "Invalid JSON body" }, 400)
     }
 
     const candidates = payload?.candidates
 
     if (!Array.isArray(candidates) || candidates.length === 0) {
-      return new Response(JSON.stringify({
+      return jsonResponse({
         error: "Missing candidates[]",
         received: payload
-      }), { status: 400 })
+      }, 400)
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!
@@ -49,9 +60,11 @@ serve(async (req) => {
 
       try {
 
-        const address = candidate.address
+        const address = typeof candidate.address === "string" ? candidate.address.trim() : ""
 
-        if (!address) continue
+        if (!address) {
+          throw new Error("Candidate address is required")
+        }
 
         /*
         --------------------------------
@@ -59,19 +72,29 @@ serve(async (req) => {
         --------------------------------
         */
 
-        const geo = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
-          {
-            headers: { "User-Agent": "ai-deal-platform/1.0" }
+        let lat: number | null = null
+        let lon: number | null = null
+        const warnings: string[] = []
+
+        try {
+          const geo = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
+            {
+              headers: { "User-Agent": "ai-deal-platform/1.0" }
+            }
+          )
+
+          const geoData = await geo.json()
+
+          if (Array.isArray(geoData) && geoData.length > 0) {
+            lat = Number(geoData[0].lat)
+            lon = Number(geoData[0].lon)
+          } else {
+            warnings.push("Geocoding returned no result")
           }
-        )
-
-        const geoData = await geo.json()
-
-        if (!Array.isArray(geoData) || geoData.length === 0) continue
-
-        const lat = Number(geoData[0].lat)
-        const lon = Number(geoData[0].lon)
+        } catch (geocodeError) {
+          warnings.push(`Geocoding failed: ${getErrorMessage(geocodeError)}`)
+        }
 
         /*
         --------------------------------
@@ -87,7 +110,8 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${serviceKey}`
+              "Authorization": `Bearer ${serviceKey}`,
+              "apikey": serviceKey
             },
             body: JSON.stringify({
               deal_id: dealId,
@@ -96,28 +120,43 @@ serve(async (req) => {
           }
         )
 
-        const intelligence = await intelligenceRes.json()
+        const intelligenceText = await intelligenceRes.text()
+        let intelligence: Record<string, unknown> | null = null
+
+        try {
+          intelligence = JSON.parse(intelligenceText)
+        } catch {
+          intelligence = null
+        }
+
+        if (!intelligenceRes.ok) {
+          throw new Error(
+            intelligence && typeof intelligence.error === "string"
+              ? intelligence.error
+              : `site-intelligence-agent failed: ${intelligenceText}`
+          )
+        }
 
         const zoning =
-          intelligence?.results?.["zoning-agent"]?.zoning ?? null
+          (intelligence?.results as Record<string, { data?: Record<string, unknown> }> | undefined)?.["zoning-agent"]?.data?.zoning ?? null
 
         const height =
-          intelligence?.results?.["height-agent"]?.height_limit ?? null
+          (intelligence?.results as Record<string, { data?: Record<string, unknown> }> | undefined)?.["height-agent"]?.data?.height_limit ?? null
 
         const fsr =
-          intelligence?.results?.["fsr-agent"]?.fsr ?? null
+          (intelligence?.results as Record<string, { data?: Record<string, unknown> }> | undefined)?.["fsr-agent"]?.data?.fsr ?? null
 
         const units =
-          intelligence?.results?.["yield-agent"]?.estimated_units ?? null
+          (intelligence?.results as Record<string, { data?: Record<string, unknown> }> | undefined)?.["yield-agent"]?.data?.estimated_units ?? null
 
         const estimatedProfit =
-          intelligence?.results?.["yield-agent"]?.estimated_profit ?? null
+          (intelligence?.results as Record<string, { data?: Record<string, unknown> }> | undefined)?.["yield-agent"]?.data?.estimated_profit ?? null
 
         const floodRisk =
-          intelligence?.results?.["flood-agent"]?.flood_risk ?? null
+          (intelligence?.results as Record<string, { data?: Record<string, unknown> }> | undefined)?.["flood-agent"]?.data?.flood_risk ?? null
 
         const heritageStatus =
-          intelligence?.results?.["heritage-agent"]?.heritage_status ?? null
+          (intelligence?.results as Record<string, { data?: Record<string, unknown> }> | undefined)?.["heritage-agent"]?.data?.heritage_status ?? null
 
         /*
         --------------------------------
@@ -155,7 +194,9 @@ serve(async (req) => {
         --------------------------------
         */
 
-        await fetch(`${supabaseUrl}/rest/v1/site_candidates`, {
+        const saveResponse = await fetch(
+          `${supabaseUrl}/rest/v1/site_candidates?on_conflict=source%2Cexternal_id`,
+          {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -190,6 +231,10 @@ serve(async (req) => {
           })
         })
 
+        if (!saveResponse.ok) {
+          throw new Error(`Failed to save site candidate: ${await saveResponse.text()}`)
+        }
+
         results.push({
           address,
           zoning,
@@ -198,6 +243,7 @@ serve(async (req) => {
           heritage_status: heritageStatus,
           estimated_units: units,
           estimated_profit: estimatedProfit,
+          warnings,
           discovery_score: score,
           discovery_reasons: reasons
         })
@@ -206,26 +252,24 @@ serve(async (req) => {
 
         results.push({
           address: candidate.address,
-          error: "Candidate processing failed"
+          error: getErrorMessage(err)
         })
 
       }
 
     }
 
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
       processed: results.length,
       results
-    }), {
-      headers: { "Content-Type": "application/json" }
     })
 
   } catch (error) {
 
-    return new Response(JSON.stringify({
-      error: error.message
-    }), { status: 500 })
+    return jsonResponse({
+      error: getErrorMessage(error)
+    }, 500)
 
   }
 

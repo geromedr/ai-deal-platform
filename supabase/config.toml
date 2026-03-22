@@ -438,6 +438,12 @@ entrypoint = "./functions/add-financial-snapshot/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/add-financial-snapshot/*.html" ]
 
+[functions.financial-engine-agent]
+enabled = true
+verify_jwt = true
+import_map = "./functions/financial-engine-agent/deno.json"
+entrypoint = "./functions/financial-engine-agent/index.ts"
+
 [functions.get-deal-context]
 enabled = true
 verify_jwt = true
@@ -526,6 +532,12 @@ entrypoint = "./functions/deal-intelligence/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/deal-intelligence/*.html" ]
 
+[functions.deal-report-agent]
+enabled = true
+verify_jwt = true
+import_map = "./functions/deal-report-agent/deno.json"
+entrypoint = "./functions/deal-report-agent/index.ts"
+
 [functions.zoning-agent]
 enabled = true
 verify_jwt = true
@@ -558,6 +570,12 @@ entrypoint = "./functions/add-knowledge-document/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/domain-discovery-agent/index.ts"
+
+[functions.da-discovery-agent]
+enabled = true
+verify_jwt = true
+import_map = "./functions/da-discovery-agent/deno.json"
+entrypoint = "./functions/da-discovery-agent/index.ts"
 
 [functions.flood-agent]
 enabled = true

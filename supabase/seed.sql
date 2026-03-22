@@ -165,6 +165,58 @@ values (
 )
 on conflict do nothing;
 
+insert into public.comparable_sales_estimates (
+  id,
+  deal_id,
+  subject_address,
+  suburb,
+  state,
+  postcode,
+  radius_km,
+  dwelling_type,
+  estimated_sale_price_per_sqm,
+  currency,
+  rationale,
+  model_name,
+  knowledge_context,
+  raw_output,
+  status
+)
+values (
+  '33333333-3333-3333-3333-333333333333',
+  '11111111-1111-1111-1111-111111111111',
+  '12 Marine Parade, Kingscliff NSW 2487',
+  'Kingscliff',
+  'NSW',
+  '2487',
+  5,
+  'apartment',
+  12500,
+  'AUD',
+  'Seed comparable pricing for local feasibility validation.',
+  'seed-data',
+  '[]'::jsonb,
+  '{"source":"seed"}'::jsonb,
+  'completed'
+)
+on conflict (id) do update
+set
+  deal_id = excluded.deal_id,
+  subject_address = excluded.subject_address,
+  suburb = excluded.suburb,
+  state = excluded.state,
+  postcode = excluded.postcode,
+  radius_km = excluded.radius_km,
+  dwelling_type = excluded.dwelling_type,
+  estimated_sale_price_per_sqm = excluded.estimated_sale_price_per_sqm,
+  currency = excluded.currency,
+  rationale = excluded.rationale,
+  model_name = excluded.model_name,
+  knowledge_context = excluded.knowledge_context,
+  raw_output = excluded.raw_output,
+  status = excluded.status,
+  updated_at = now();
+
 insert into public.risks (
   deal_id,
   title,

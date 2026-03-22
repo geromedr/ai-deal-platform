@@ -16,6 +16,9 @@ Advances a deal by requesting context, reasoning on next actions, and delegating
 ### deal-intelligence
 Aggregates analysis outputs and records risks, milestones, and financial insights.
 
+### deal-report-agent
+Generates the final investment-ready report for a development opportunity using planning, yield, financial, and ranking data.
+
 ### create-task
 Creates task records linked to deals.
 
@@ -39,7 +42,7 @@ Logs request payloads and returns a success response for testing.
 ## Planning Intelligence
 
 ### site-intelligence-agent
-Runs the planning and yield sub-agents for a subject site.
+Runs the end-to-end site pipeline for a subject site, sequencing planning agents, comparable sales, yield, financial modelling, parcel ranking, and final deal reporting.
 
 ### zoning-agent
 Retrieves zoning controls.
@@ -61,6 +64,9 @@ Checks heritage restrictions.
 ### domain-discovery-agent
 Scans external sources for opportunities.
 
+### da-discovery-agent
+Scans mock planning portal data for apartment and multi-dwelling development applications and forwards structured candidates to site-discovery-agent.
+
 ### planning-da-discovery-agent
 Collects development application discovery opportunities.
 
@@ -68,7 +74,7 @@ Collects development application discovery opportunities.
 Submits candidate sites into the analysis pipeline and scoring workflow.
 
 ### parcel-ranking-agent
-Ranks candidate parcels for acquisition review.
+Ranks candidate parcels for acquisition review using a weighted scoring model across zoning, FSR, height, site size, yield, and financial margin.
 
 ## Feasibility
 
@@ -80,6 +86,9 @@ Finds nearby comparable developments and estimates sale price per sqm.
 
 ### add-financial-snapshot
 Stores financial assumptions and snapshots.
+
+### financial-engine-agent
+Performs detailed feasibility calculations using yield outputs, comparable-sales pricing, and planning constraints, then stores a structured financial snapshot for downstream reporting.
 
 ## Knowledge
 

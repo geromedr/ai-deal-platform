@@ -1,0 +1,9 @@
+{
+  "source": "mock-nsw-planning-portal",
+  "jurisdiction": "NSW",
+  "statuses": [
+    "Lodged",
+    "In Assessment"
+  ],
+  "limit": 10
+}
