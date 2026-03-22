@@ -1,0 +1,7 @@
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "prompt": "Review the deal context and recommend the most important next actions for progressing this NSW apartment site.",
+  "knowledge_query": "NSW apartment development comparable sales and next-step feasibility guidance",
+  "knowledge_category": "comparable_sales",
+  "knowledge_match_count": 5
+}

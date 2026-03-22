@@ -1,0 +1,26 @@
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "aiDecision": {
+    "summary": "Create a follow-up task and log inbound communication.",
+    "actions": [
+      {
+        "action": "task_create",
+        "details": {
+          "title": "Review comparable sales evidence",
+          "description": "Assess recent nearby apartment sales and confirm pricing assumptions.",
+          "assigned_to": "acquisitions",
+          "due_date": "2026-03-26"
+        }
+      },
+      {
+        "action": "log_communication",
+        "details": {
+          "sender": "agent@example.com",
+          "subject": "Comparable sales update",
+          "message_summary": "Agent sent updated market pricing guidance for nearby apartment stock.",
+          "received_at": "2026-03-19T09:00:00Z"
+        }
+      }
+    ]
+  }
+}

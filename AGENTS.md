@@ -2,7 +2,7 @@
 
 All AI systems working in this repository must follow:
 
-docs/ai-governance/AI_SYSTEM_PROMPT.md
+docs/operations/AI_SYSTEM_PROMPT.md
 
 This document defines:
 - architecture

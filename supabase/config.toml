@@ -548,3 +548,63 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/comparable-sales-agent/deno.json"
 entrypoint = "./functions/comparable-sales-agent/index.ts"
+
+[functions.add-knowledge-document]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/add-knowledge-document/index.ts"
+
+[functions.domain-discovery-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/domain-discovery-agent/index.ts"
+
+[functions.flood-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/flood-agent/index.ts"
+
+[functions.fsr-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/fsr-agent/index.ts"
+
+[functions.height-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/height-agent/index.ts"
+
+[functions.heritage-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/heritage-agent/index.ts"
+
+[functions.parcel-ranking-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/parcel-ranking-agent/index.ts"
+
+[functions.planning-da-discovery-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/planning-da-discovery-agent/index.ts"
+
+[functions.search-knowledge]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/search-knowledge/index.ts"
+
+[functions.site-discovery-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/site-discovery-agent/index.ts"
+
+[functions.site-intelligence-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/site-intelligence-agent/index.ts"
+
+[functions.yield-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/yield-agent/index.ts"

@@ -1,0 +1,20 @@
+{
+  "candidates": [
+    {
+      "source": "manual",
+      "external_id": "candidate-001",
+      "address": "12 Marine Parade, Kingscliff NSW 2487",
+      "suburb": "Kingscliff",
+      "state": "NSW",
+      "postcode": "2487",
+      "price_text": "Expressions of Interest",
+      "property_type": "Development Site",
+      "land_area": 1450,
+      "url": "https://example.com/listings/candidate-001",
+      "headline": "Beachside development site",
+      "raw_data": {
+        "source_note": "Manual test payload"
+      }
+    }
+  ]
+}
