@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 1711
+Connection: keep-alive
+vary: Accept-Encoding
+date: Sun, 22 Mar 2026 10:25:58 GMT
+Access-Control-Allow-Origin: *
+X-Kong-Upstream-Latency: 54
+X-Kong-Proxy-Latency: 0
+Via: kong/2.8.1
+
+{"success":true,"deal_id":"11111111-1111-1111-1111-111111111111","address":"12 Marine Parade, Kingscliff NSW 2487","planning_constraints":{"zoning":"R3","fsr":"Unknown","height_limit":"Unknown","flood_risk":"Low","heritage_status":"No mapped heritage"},"estimated_units":13,"comparable_sales":{"id":"81cfe664-facb-4183-8d98-227844209b86","estimated_sale_price_per_sqm":6500,"currency":"AUD","rationale":"No direct comparable new development data available for Kingscliff NSW. Based on typical mid-range coastal NSW apartment development pricing and conservative market assessment, an estimated price of AUD 6,500 per sqm is proposed for R3 zoned sites within a 5 km radius.","created_at":"2026-03-22T10:25:53.294746+00:00","nearby_developments":[]},"assumptions":{"build_cost_per_sqm":4200,"contingency_rate":0.07,"professional_fees_rate":0.09,"marketing_rate":0.035,"finance_rate":0.05,"developer_margin_target_rate":0.18,"price_per_sqm":6500,"source":"comparable-sales-agent"},"revenue_estimate":7800000,"cost_estimate":6411720,"revenue":7800000,"cost":6411720,"profit":1388280,"margin":0.178,"residual_land_value":-15720,"build_cost_per_sqm":4200,"sale_price_per_sqm":6500,"planning_risk_multiplier":1,"cost_breakdown":{"hard_cost":5040000,"contingency_cost":352800,"professional_fees":453600,"marketing_cost":273000,"finance_cost":292320},"formulas":{"revenue":"estimated_gfa * sale_price_per_sqm","cost":"(gfa * build_cost_per_sqm * planning_risk_multiplier) + contingency + professional_fees + marketing + finance","profit":"revenue - cost","margin":"profit / revenue","residual_land_value":"revenue - cost - (revenue * developer_margin_target_rate)"},"snapshot_id":"03ba466a-238a-4d84-a696-22d4d2664c38"}

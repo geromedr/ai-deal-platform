@@ -39,6 +39,14 @@ type ComparableSalesEstimateRow = {
   created_at?: string | null
 }
 
+type ComparableSalesEvidenceRow = {
+  project_name?: string | null
+  location?: string | null
+  dwelling_type?: string | null
+  estimated_sale_price_per_sqm?: number | string | null
+  similarity_reason?: string | null
+}
+
 type FinancialSnapshotInsert = {
   deal_id: string
   category: string
@@ -61,7 +69,6 @@ type CalculationAssumptions = {
 type FeasibilityInputs = {
   gfa: number
   revenue: number
-  build_cost_per_sqm: number
   planning_risk_multiplier: number
 }
 
@@ -88,6 +95,12 @@ type FeasibilityOutput = {
     margin: string
     residual_land_value: string
   }
+}
+
+type WarningEntry = {
+  agent: string
+  issue: string
+  message: string
 }
 
 const DEFAULT_BUILD_COST_PER_SQM = 4200
@@ -139,6 +152,62 @@ function getEnvNumber(name: string, fallback: number) {
   const value = Deno.env.get(name)
   const parsed = parseNumberLoose(value)
   return parsed ?? fallback
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  )
+}
+
+async function callAgent(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  authorizationHeader: string | null,
+  agent: string,
+  payload: Record<string, unknown>
+) {
+  const normalizedRequestAuthorization =
+    typeof authorizationHeader === "string" && authorizationHeader.trim().length > 0
+      ? authorizationHeader.trim()
+      : null
+  const bearerToken = normalizedRequestAuthorization?.toLowerCase().startsWith("bearer ")
+    ? normalizedRequestAuthorization
+    : serviceRoleKey.includes(".")
+      ? `Bearer ${serviceRoleKey}`
+      : normalizedRequestAuthorization
+        ? `Bearer ${normalizedRequestAuthorization.replace(/^Bearer\s+/i, "")}`
+        : null
+  const authorizationSource = normalizedRequestAuthorization?.toLowerCase().startsWith("bearer ")
+    ? "request"
+    : serviceRoleKey.includes(".")
+      ? "service-role"
+      : normalizedRequestAuthorization
+        ? "request-normalized"
+        : "none"
+
+  console.log("financial-engine-agent calling downstream agent", {
+    agent,
+    authorization_source: authorizationSource
+  })
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/${agent}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(bearerToken ? { "Authorization": bearerToken } : {}),
+      "apikey": serviceRoleKey
+    },
+    body: JSON.stringify(payload)
+  })
+
+  console.log("financial-engine-agent downstream agent completed", {
+    agent,
+    status: response.status,
+    ok: response.ok
+  })
+
+  return response
 }
 
 function validateAssumptionRange(name: string, value: number, min: number, max: number) {
@@ -297,8 +366,17 @@ serve(async (req) => {
   if (!supabaseUrl) return jsonResponse({ error: "SUPABASE_URL not set" }, 500)
   if (!serviceKey) return jsonResponse({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }, 500)
 
+  let deal_id = ""
+  const warnings: WarningEntry[] = []
+
+  const addWarning = (agent: string, issue: string, message: string) => {
+    console.warn("financial-engine-agent warning", { deal_id, agent, issue, message })
+    warnings.push({ agent, issue, message })
+  }
+
   try {
     let payload: FinancialEngineRequest
+    const requestAuthorizationHeader = req.headers.get("Authorization")
 
     try {
       payload = await req.json()
@@ -306,10 +384,11 @@ serve(async (req) => {
       return jsonResponse({ error: "Invalid JSON body" }, 400)
     }
 
-    const deal_id =
-      typeof payload.deal_id === "string" && payload.deal_id.trim().length > 0
-        ? payload.deal_id.trim()
-        : ""
+    if (payload.deal_id !== undefined && typeof payload.deal_id !== "string") {
+      return jsonResponse({ error: "deal_id must be a string" }, 400)
+    }
+
+    deal_id = typeof payload.deal_id === "string" ? payload.deal_id.trim() : ""
 
     if (payload.refresh_yield !== undefined && typeof payload.refresh_yield !== "boolean") {
       return jsonResponse({ error: "refresh_yield must be a boolean" }, 400)
@@ -329,6 +408,10 @@ serve(async (req) => {
       return jsonResponse({ error: "Missing deal_id" }, 400)
     }
 
+    if (!isUuid(deal_id)) {
+      return jsonResponse({ error: "deal_id must be a valid UUID" }, 400)
+    }
+
     console.log("financial-engine-agent request received", {
       deal_id,
       refresh_yield: refreshYield,
@@ -338,22 +421,28 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey)
 
     if (refreshYield) {
-      const yieldResponse = await fetch(`${supabaseUrl}/functions/v1/yield-agent`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${serviceKey}`,
-          "apikey": serviceKey
-        },
-        body: JSON.stringify({
+      try {
+        console.log("financial-engine-agent downstream call", {
           deal_id,
-          use_comparable_sales: useComparableSales
+          agent: "yield-agent"
         })
-      })
+        const yieldResponse = await callAgent(
+          supabaseUrl,
+          serviceKey,
+          requestAuthorizationHeader,
+          "yield-agent",
+          {
+            deal_id,
+            use_comparable_sales: useComparableSales
+          }
+        )
 
-      if (!yieldResponse.ok) {
-        const errorText = await yieldResponse.text()
-        throw new Error(`yield-agent failed: ${errorText}`)
+        if (!yieldResponse.ok) {
+          const errorText = await yieldResponse.text()
+          addWarning("yield-agent", "Failed to fetch data", errorText)
+        }
+      } catch (error) {
+        addWarning("yield-agent", "Failed to fetch data", error instanceof Error ? error.message : "unknown error")
       }
     }
 
@@ -369,7 +458,45 @@ serve(async (req) => {
     const site = siteData as SiteIntelligenceRow | null
 
     if (!site) {
-      return jsonResponse({ error: "No site intelligence found" }, 400)
+      addWarning("financial-engine-agent", "Fallback used", "No site intelligence found")
+      return jsonResponse({
+        success: true,
+        deal_id,
+        address: null,
+        planning_constraints: {
+          zoning: null,
+          fsr: null,
+          height_limit: null,
+          flood_risk: null,
+          heritage_status: null
+        },
+        estimated_units: null,
+        comparable_sales: null,
+        assumptions: null,
+        revenue_estimate: null,
+        cost_estimate: null,
+        revenue: null,
+        cost: null,
+        profit: null,
+        margin: null,
+        residual_land_value: null,
+        build_cost_per_sqm: null,
+        sale_price_per_sqm: null,
+        planning_risk_multiplier: null,
+        cost_breakdown: null,
+        formulas: null,
+        snapshot_id: null,
+        warnings,
+        warning_messages: warnings.map((warning) => `${warning.agent}: ${warning.message}`),
+        data: {
+          deal_id,
+          revenue: null,
+          cost: null,
+          profit: null,
+          margin: null,
+          residual_land_value: null
+        }
+      })
     }
 
     let assumptions: CalculationAssumptions
@@ -382,14 +509,48 @@ serve(async (req) => {
       }, 400)
     }
     const estimatedGfa = parseNumberLoose(site.estimated_gfa)
-    const estimatedRevenue = parseNumberLoose(site.estimated_revenue)
+    const existingRevenue = parseNumberLoose(site.estimated_revenue)
 
     if (estimatedGfa === null || estimatedGfa <= 0) {
-      return jsonResponse({ error: "Estimated GFA is required before financial modelling" }, 400)
-    }
-
-    if (estimatedRevenue === null || estimatedRevenue <= 0) {
-      return jsonResponse({ error: "Estimated revenue is required before financial modelling" }, 400)
+      addWarning("financial-engine-agent", "Fallback used", "Estimated GFA is unavailable for financial modelling")
+      return jsonResponse({
+        success: true,
+        deal_id,
+        address: site.address || null,
+        planning_constraints: {
+          zoning: site.zoning || null,
+          fsr: site.fsr || null,
+          height_limit: site.height_limit || null,
+          flood_risk: site.flood_risk || null,
+          heritage_status: site.heritage_status || null
+        },
+        estimated_units: site.estimated_units ?? null,
+        comparable_sales: null,
+        assumptions,
+        revenue_estimate: null,
+        cost_estimate: null,
+        revenue: null,
+        cost: null,
+        profit: null,
+        margin: null,
+        residual_land_value: null,
+        build_cost_per_sqm: null,
+        sale_price_per_sqm: null,
+        planning_risk_multiplier: null,
+        cost_breakdown: null,
+        formulas: null,
+        snapshot_id: null,
+        warnings,
+        warning_messages: warnings.map((warning) => `${warning.agent}: ${warning.message}`),
+        data: {
+          deal_id,
+          revenue: null,
+          cost: null,
+          profit: null,
+          margin: null,
+          residual_land_value: null
+        }
+      })
     }
 
     const { data: comparableData, error: comparableError } = await supabase
@@ -401,15 +562,98 @@ serve(async (req) => {
       .limit(1)
       .maybeSingle()
 
-    if (comparableError) throw comparableError
+    if (comparableError) {
+      addWarning("comparable-sales-agent", "Failed to fetch data", comparableError.message)
+    }
     const latestComparable = comparableData as ComparableSalesEstimateRow | null
+    const comparablePricePerSqm = parseNumberLoose(
+      latestComparable?.estimated_sale_price_per_sqm
+    )
+
+    const { data: comparableEvidenceData, error: comparableEvidenceError } = latestComparable?.id
+      ? await supabase
+          .from("comparable_sales_evidence")
+          .select(
+            "project_name, location, dwelling_type, estimated_sale_price_per_sqm, similarity_reason"
+          )
+          .eq("estimate_id", latestComparable.id)
+          .order("created_at", { ascending: false })
+          .limit(5)
+      : { data: [], error: null }
+
+    if (comparableEvidenceError) {
+      addWarning("comparable-sales-agent", "Failed to fetch data", comparableEvidenceError.message)
+    }
+    const nearbyDevelopments = (comparableEvidenceData ||
+      []) as ComparableSalesEvidenceRow[]
+
+    const fallbackPricePerSqm =
+      existingRevenue !== null && existingRevenue > 0 ? existingRevenue / estimatedGfa : null
+    const resolvedPricePerSqm =
+      useComparableSales && comparablePricePerSqm !== null && comparablePricePerSqm > 0
+        ? comparablePricePerSqm
+        : fallbackPricePerSqm
+
+    if (resolvedPricePerSqm === null || resolvedPricePerSqm <= 0) {
+      addWarning(
+        "financial-engine-agent",
+        "Fallback used",
+        "No comparable price or fallback revenue is available"
+      )
+      return jsonResponse({
+        success: true,
+        deal_id,
+        address: site.address || null,
+        planning_constraints: {
+          zoning: site.zoning || null,
+          fsr: site.fsr || null,
+          height_limit: site.height_limit || null,
+          flood_risk: site.flood_risk || null,
+          heritage_status: site.heritage_status || null
+        },
+        estimated_units: site.estimated_units ?? null,
+        comparable_sales: {
+          ...(latestComparable || {}),
+          nearby_developments: nearbyDevelopments
+        },
+        assumptions,
+        revenue_estimate: null,
+        cost_estimate: null,
+        revenue: null,
+        cost: null,
+        profit: null,
+        margin: null,
+        residual_land_value: null,
+        build_cost_per_sqm: null,
+        sale_price_per_sqm: null,
+        planning_risk_multiplier: null,
+        cost_breakdown: null,
+        formulas: null,
+        snapshot_id: null,
+        warnings,
+        warning_messages: warnings.map((warning) => `${warning.agent}: ${warning.message}`),
+        data: {
+          deal_id,
+          revenue: null,
+          cost: null,
+          profit: null,
+          margin: null,
+          residual_land_value: null
+        }
+      })
+    }
+
+    const revenueSource =
+      useComparableSales && comparablePricePerSqm !== null && comparablePricePerSqm > 0
+        ? "comparable-sales-agent"
+        : "yield-agent-fallback"
+    const revenueEstimate = roundCurrency(resolvedPricePerSqm * estimatedGfa)
 
     const planningRisk = getPlanningRiskMultiplier(site)
     const feasibility = calculateFeasibility(
       {
         gfa: estimatedGfa,
-        revenue: estimatedRevenue,
-        build_cost_per_sqm: assumptions.build_cost_per_sqm,
+        revenue: revenueEstimate,
         planning_risk_multiplier: planningRisk.multiplier
       },
       assumptions
@@ -433,40 +677,69 @@ serve(async (req) => {
           flood_risk: site.flood_risk || null,
           heritage_status: site.heritage_status || null
         },
-        comparable_sales: latestComparable,
+        comparable_sales: {
+          ...(latestComparable || {}),
+          nearby_developments: nearbyDevelopments
+        },
         assumptions,
+        revenue_assumptions: {
+          gfa: estimatedGfa,
+          price_per_sqm: roundCurrency(resolvedPricePerSqm),
+          source: revenueSource
+        },
         planning_risk_notes: planningRisk.notes,
         feasibility
       }
     }
 
-    const { data: snapshotData, error: snapshotError } = await supabase
-      .from("financial_snapshots")
-      .insert(snapshotPayload)
-      .select()
-      .single()
+    let snapshotId: string | null = null
 
-    if (snapshotError) throw snapshotError
+    try {
+      const { data: snapshotData, error: snapshotError } = await supabase
+        .from("financial_snapshots")
+        .insert(snapshotPayload)
+        .select()
+        .single()
 
-    const { error: actionError } = await supabase
-      .from("ai_actions")
-      .insert({
-        deal_id,
-        agent: "financial-engine-agent",
-        action: "financial_feasibility_calculated",
-        payload: {
-          snapshot_id: snapshotData.id,
-          assumptions,
-          planning_risk_multiplier: planningRisk.multiplier,
-          revenue: feasibility.revenue,
-          cost: feasibility.cost,
-          profit: feasibility.profit,
-          margin: feasibility.margin,
-          residual_land_value: feasibility.residual_land_value
-        }
-      })
+      if (snapshotError) {
+        addWarning("financial-engine-agent", "Failed to persist data", snapshotError.message)
+      } else {
+        snapshotId = snapshotData.id
+      }
+    } catch (error) {
+      addWarning("financial-engine-agent", "Failed to persist data", error instanceof Error ? error.message : "unknown error")
+    }
 
-    if (actionError) throw actionError
+    try {
+      const { error: actionError } = await supabase
+        .from("ai_actions")
+        .insert({
+          deal_id,
+          agent: "financial-engine-agent",
+          action: "financial_feasibility_calculated",
+          payload: {
+            snapshot_id: snapshotId,
+            assumptions,
+            revenue_assumptions: {
+              gfa: estimatedGfa,
+              price_per_sqm: roundCurrency(resolvedPricePerSqm),
+              source: revenueSource
+            },
+            planning_risk_multiplier: planningRisk.multiplier,
+            revenue: feasibility.revenue,
+            cost: feasibility.cost,
+            profit: feasibility.profit,
+            margin: feasibility.margin,
+            residual_land_value: feasibility.residual_land_value
+          }
+        })
+
+      if (actionError) {
+        addWarning("financial-engine-agent", "Failed to persist data", actionError.message)
+      }
+    } catch (error) {
+      addWarning("financial-engine-agent", "Failed to persist data", error instanceof Error ? error.message : "unknown error")
+    }
 
     console.log("financial-engine-agent processing complete", {
       deal_id,
@@ -488,16 +761,80 @@ serve(async (req) => {
         heritage_status: site.heritage_status || null
       },
       estimated_units: site.estimated_units ?? null,
-      comparable_sales: latestComparable,
-      assumptions,
+      comparable_sales: {
+        ...(latestComparable || {}),
+        nearby_developments: nearbyDevelopments
+      },
+      assumptions: {
+        ...assumptions,
+        price_per_sqm: roundCurrency(resolvedPricePerSqm),
+        source: revenueSource
+      },
+      revenue_estimate: feasibility.revenue,
+      cost_estimate: feasibility.cost,
       ...feasibility,
-      snapshot_id: snapshotData.id
+      snapshot_id: snapshotId,
+      warnings,
+      warning_messages: warnings.map((warning) => `${warning.agent}: ${warning.message}`),
+      data: {
+        deal_id,
+        revenue: feasibility.revenue,
+        cost: feasibility.cost,
+        profit: feasibility.profit,
+        margin: feasibility.margin,
+        residual_land_value: feasibility.residual_land_value
+      }
     })
   } catch (error) {
     console.error("financial-engine-agent failed", error)
 
     return jsonResponse({
-      error: error instanceof Error ? error.message : "Unknown error"
-    }, 500)
+      success: true,
+      deal_id,
+      address: null,
+      planning_constraints: {
+        zoning: null,
+        fsr: null,
+        height_limit: null,
+        flood_risk: null,
+        heritage_status: null
+      },
+      estimated_units: null,
+      comparable_sales: null,
+      assumptions: null,
+      revenue_estimate: null,
+      cost_estimate: null,
+      revenue: null,
+      cost: null,
+      profit: null,
+      margin: null,
+      residual_land_value: null,
+      build_cost_per_sqm: null,
+      sale_price_per_sqm: null,
+      planning_risk_multiplier: null,
+      cost_breakdown: null,
+      formulas: null,
+      snapshot_id: null,
+      warnings: [
+        ...warnings,
+        {
+          agent: "financial-engine-agent",
+          issue: "Unhandled processing error",
+          message: error instanceof Error ? error.message : "Unknown error"
+        }
+      ],
+      warning_messages: [
+        ...warnings.map((warning) => `${warning.agent}: ${warning.message}`),
+        `financial-engine-agent: ${error instanceof Error ? error.message : "Unknown error"}`
+      ],
+      data: {
+        deal_id,
+        revenue: null,
+        cost: null,
+        profit: null,
+        margin: null,
+        residual_land_value: null
+      }
+    })
   }
 })

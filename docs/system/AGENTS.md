@@ -17,7 +17,7 @@ Advances a deal by requesting context, reasoning on next actions, and delegating
 Aggregates analysis outputs and records risks, milestones, and financial insights.
 
 ### deal-report-agent
-Generates the final investment-ready report for a development opportunity using planning, yield, financial, and ranking data.
+Generates the final investment-ready report for a development opportunity by aggregating get-deal, get-deal-context, planning refreshes, yield, financial snapshots, comparable sales, and ranking data into structured JSON plus a human-readable summary, with strict deal ID validation, warning-driven partial results, and fallback-safe downstream handling.
 
 ### create-task
 Creates task records linked to deals.
@@ -74,7 +74,7 @@ Collects development application discovery opportunities.
 Submits candidate sites into the analysis pipeline and scoring workflow.
 
 ### parcel-ranking-agent
-Ranks candidate parcels for acquisition review using a weighted scoring model across zoning, FSR, height, site size, yield, and financial margin.
+Ranks development opportunities using a weighted scoring model across zoning, FSR, height, site size, yield, financial margin, and comparable sales strength, supporting both `deal_id` scoring and existing batch candidate ranking with strict mode-specific request validation.
 
 ## Feasibility
 
@@ -88,7 +88,7 @@ Finds nearby comparable developments and estimates sale price per sqm.
 Stores financial assumptions and snapshots.
 
 ### financial-engine-agent
-Performs detailed feasibility calculations using yield outputs, comparable-sales pricing, and planning constraints, then stores a structured financial snapshot for downstream reporting.
+Performs detailed feasibility calculations using yield outputs, explicit comparable-sales price-per-sqm assumptions, nearby comparable developments, and planning constraints, then stores a structured financial snapshot for downstream reporting with fallback-safe revenue assumptions, warning-driven partial results, and clearer client-facing validation errors.
 
 ## Knowledge
 

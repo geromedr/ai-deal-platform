@@ -1,0 +1,20 @@
+HTTP/1.1 401 Unauthorized
+Date: Sun, 22 Mar 2026 10:42:00 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Server: cloudflare
+CF-Ray: 9e04964e3ba5e7d4-SYD
+CF-Cache-Status: DYNAMIC
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Vary: Accept-Encoding
+sb-gateway-version: 1
+sb-project-ref: fefbzgmvlcxkaarxttlu
+sb-request-id: 019d1523-2ce9-72ae-a448-990e02bb04a0
+x-deno-execution-id: 741d3162-8632-4d8d-a5f5-5e79792940dd
+x-sb-edge-region: ap-southeast-2
+x-served-by: supabase-edge-runtime
+Set-Cookie: __cf_bm=3H6qBwP6TxPPjCpKl80oEyVlbPizE68paE4bCB1yDLA-1774176120-1.0.1.1-DDRQAq.IvTh6HhDIM4Dk.P6IkUAKZhAdv9CvcGDo.OoepfJ3.qj1628Qz9EZAlGLKSeG0IweIKRup0bxFQG_aCCR9CfoXpow0kPPw5Ug.kw; path=/; expires=Sun, 22-Mar-26 11:12:00 GMT; domain=.supabase.co; HttpOnly; Secure; SameSite=None
+alt-svc: h3=":443"; ma=86400
+
+{"error":"yield-agent failed: {\"code\":401,\"message\":\"Invalid Token or Protected Header formatting\"}"}

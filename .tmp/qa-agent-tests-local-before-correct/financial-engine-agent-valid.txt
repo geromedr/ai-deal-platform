@@ -1,0 +1,12 @@
+HTTP/1.1 500 Internal Server Error
+Content-Type: application/json
+Content-Length: 236
+Connection: keep-alive
+vary: Accept-Encoding
+date: Sun, 22 Mar 2026 10:20:38 GMT
+Access-Control-Allow-Origin: *
+X-Kong-Upstream-Latency: 83
+X-Kong-Proxy-Latency: 0
+Via: kong/2.8.1
+
+{"error":"yield-agent failed: {\"error\":\"Failed to load site intelligence: {\\\"code\\\":\\\"22P02\\\",\\\"details\\\":null,\\\"hint\\\":null,\\\"message\\\":\\\"invalid input syntax for type uuid: \\\\\\\"test-valid\\\\\\\"\\\"}\"}"}

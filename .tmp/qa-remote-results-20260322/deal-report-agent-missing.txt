@@ -1,0 +1,20 @@
+HTTP/1.1 500 Internal Server Error
+Date: Sun, 22 Mar 2026 10:41:51 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Server: cloudflare
+CF-Ray: 9e0496147a9ee7c4-SYD
+CF-Cache-Status: DYNAMIC
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Vary: Accept-Encoding
+sb-gateway-version: 1
+sb-project-ref: fefbzgmvlcxkaarxttlu
+sb-request-id: 019d1523-08ce-7db2-9499-9df010e8e622
+x-deno-execution-id: 9ca9ce07-c13e-497b-a0f8-609b5c5fd4b7
+x-sb-edge-region: ap-southeast-2
+x-served-by: supabase-edge-runtime
+Set-Cookie: __cf_bm=_66UaoJjEB6C6vzkn9pFOcYPGONjMSDVdbOaVD18kMg-1774176111-1.0.1.1-s53m8OMlmvtd4_VYg2bzzdHvP1skwvnm5MR5TeH6OMAFMakMbvDCCu3oJB6rXxnx7FkYjzfci5mIlFvZ9VCXL8nEwedG.qkjPhftG1O_vh0; path=/; expires=Sun, 22-Mar-26 11:11:51 GMT; domain=.supabase.co; HttpOnly; Secure; SameSite=None
+alt-svc: h3=":443"; ma=86400
+
+{"error":"get-deal failed: {\"code\":401,\"message\":\"Invalid Token or Protected Header formatting\"}"}

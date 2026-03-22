@@ -255,6 +255,11 @@ Response:
 
 POST `/functions/v1/financial-engine-agent`
 
+Validation notes:
+- `deal_id` must be a non-empty UUID
+- invalid or empty identifiers return `400`
+- resilience mode returns `success: true` with partial `data`, `warnings`, and preserved top-level fields when downstream or optional data is unavailable
+
 Request:
 
 ```json
@@ -289,9 +294,19 @@ Response:
   },
   "estimated_units": 24,
   "comparable_sales": {
+    "id": "33333333-3333-3333-3333-333333333333",
     "estimated_sale_price_per_sqm": 12500,
     "currency": "AUD",
-    "rationale": "Seed comparable pricing for local feasibility validation."
+    "rationale": "Seed comparable pricing for local feasibility validation.",
+    "nearby_developments": [
+      {
+        "project_name": "Kingscliff Beach Residences",
+        "location": "Marine Parade, Kingscliff NSW",
+        "dwelling_type": "apartments",
+        "estimated_sale_price_per_sqm": 12400,
+        "similarity_reason": "Comparable beachfront apartment product."
+      }
+    ]
   },
   "assumptions": {
     "build_cost_per_sqm": 4200,
@@ -299,8 +314,12 @@ Response:
     "professional_fees_rate": 0.09,
     "marketing_rate": 0.035,
     "finance_rate": 0.05,
-    "developer_margin_target_rate": 0.18
+    "developer_margin_target_rate": 0.18,
+    "price_per_sqm": 12500,
+    "source": "comparable-sales-agent"
   },
+  "revenue_estimate": 15000000,
+  "cost_estimate": 6489840,
   "revenue": 15000000,
   "cost": 6489840,
   "profit": 8510160,
@@ -331,7 +350,45 @@ Request:
 
 POST `/functions/v1/parcel-ranking-agent`
 
+Validation notes:
+- deal mode requires `deal_id` as a non-empty UUID
+- batch mode should omit `deal_id` and use `limit` / `only_unranked`
+- malformed deal IDs return `400` instead of falling through to batch mode
+
 Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "address": "12 Marine Parade, Kingscliff NSW 2487",
+  "score": 54,
+  "tier": "B",
+  "breakdown": {
+    "zoning": 16,
+    "fsr": 3,
+    "height": 2,
+    "site_size": 6,
+    "yield": 6,
+    "financial": 1,
+    "comparables": 5
+  },
+  "reasoning": "Medium-density zoning R3; Constrained FSR potential 0:1; Low height capacity 0m",
+  "reason": "Medium-density zoning R3; Constrained FSR potential 0:1; Low height capacity 0m",
+  "ranking_score": 54,
+  "ranking_tier": "B"
+}
+```
+
+Batch compatibility request:
 
 ```json
 {
@@ -343,6 +400,12 @@ Request:
 ## Example: deal-report-agent
 
 POST `/functions/v1/deal-report-agent`
+
+Validation notes:
+- `deal_id` must be a non-empty UUID
+- malformed identifiers return `400`
+- unknown but well-formed deal IDs return `404`
+- resilience mode keeps report generation alive with partial `data`, `warnings`, and preserved top-level fields when downstream agents fail
 
 Request:
 
@@ -367,23 +430,44 @@ Response:
       "flood_risk": "Low",
       "heritage_status": null
     },
-    "estimated_yield": {
+    "development_potential": {
+      "gfa": 2160,
       "units": 24
     },
-    "financials": {
+    "feasibility": {
       "estimated_revenue": 23760000,
-      "estimated_build_cost": 9072000,
-      "projected_margin": 14688000
+      "estimated_costs": 9072000,
+      "projected_profit": 14688000,
+      "margin": 0.6182,
+      "residual_land_value": 10411200
     },
-    "ranking": {
+    "comparable_sales_summary": {
+      "available": true,
+      "estimated_sale_price_per_sqm": 12500,
+      "currency": "AUD",
+      "rationale": "Nearby apartment projects indicate premium coastal pricing.",
+      "source": "comparable-sales-agent"
+    },
+    "opportunity_score": {
       "score": 68,
       "tier": "B",
       "reason": "Medium-density zoning R3; Strong projected margin; manageable flood profile"
     },
-    "recommendation": "Proceed with targeted due diligence"
+    "recommendation": "Strong",
+    "reasoning": [
+      "Planning controls show zoning R3 with FSR 1.8:1 and height 13m."
+    ],
+    "context": {
+      "stage": "opportunity",
+      "status": "active",
+      "open_task_count": 2,
+      "risk_count": 1,
+      "latest_communication_summary": "Agent shared a medium-density coastal site for review."
+    }
   },
   "human_readable_summary": "Investment-ready summary text",
-  "summary_source": "ai-agent"
+  "summary_source": "ai-agent",
+  "warnings": []
 }
 ```
 

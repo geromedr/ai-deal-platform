@@ -123,6 +123,17 @@ AI may prepare deployment commands but must **not deploy automatically**.
 
 Deployment requires developer approval.
 
+## Deployment Rule
+
+AI must NOT deploy functions automatically.
+
+Default:
+- generate deploy command
+- wait for developer instruction
+
+Only deploy if explicitly instructed:
+"deploy this agent"
+
 ## CREATE TABLE WORKFLOW
 
 When a required table does not exist:

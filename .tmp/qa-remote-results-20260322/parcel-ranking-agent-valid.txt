@@ -1,0 +1,20 @@
+HTTP/1.1 404 Not Found
+Date: Sun, 22 Mar 2026 10:41:54 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Server: cloudflare
+CF-Ray: 9e049619fd03c17f-SYD
+CF-Cache-Status: DYNAMIC
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Vary: Accept-Encoding
+sb-gateway-version: 1
+sb-project-ref: fefbzgmvlcxkaarxttlu
+sb-request-id: 019d1523-0c4c-729a-80f5-b6909a2d900a
+x-deno-execution-id: e8f78e59-5801-4547-b90a-24e7f9bd2b72
+x-sb-edge-region: ap-southeast-2
+x-served-by: supabase-edge-runtime
+Set-Cookie: __cf_bm=pAlVOStTY6JHqodpNMs.zOVjjORDAuJnmeG1e831748-1774176114-1.0.1.1-GRBDUWL24OKiTm90PwyOOzCI1Bd5URcO8AolasCi7eNWG5RsCPKW6jjQslylNjNsdWOZ.vnpeBeV9NHQ5Evh4Xul7hXafgkeEBZL3iFAAzc; path=/; expires=Sun, 22-Mar-26 11:11:54 GMT; domain=.supabase.co; HttpOnly; Secure; SameSite=None
+alt-svc: h3=":443"; ma=86400
+
+{"error":"Deal not found"}

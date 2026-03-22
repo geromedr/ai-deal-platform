@@ -1,0 +1,12 @@
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 40
+Connection: keep-alive
+vary: Accept-Encoding
+date: Sun, 22 Mar 2026 10:25:46 GMT
+Access-Control-Allow-Origin: *
+X-Kong-Upstream-Latency: 5
+X-Kong-Proxy-Latency: 0
+Via: kong/2.8.1
+
+{"error":"deal_id must be a valid UUID"}

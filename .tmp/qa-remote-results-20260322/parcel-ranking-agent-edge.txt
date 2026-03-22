@@ -1,0 +1,20 @@
+HTTP/1.1 400 Bad Request
+Date: Sun, 22 Mar 2026 10:41:55 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Server: cloudflare
+CF-Ray: 9e0496311945e7c8-SYD
+CF-Cache-Status: DYNAMIC
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Vary: Accept-Encoding
+sb-gateway-version: 1
+sb-project-ref: fefbzgmvlcxkaarxttlu
+sb-request-id: 019d1523-1abf-7475-8b22-ff6aff19ee7f
+x-deno-execution-id: f724b4c4-aab1-4e78-a6ac-d350c649dbf1
+x-sb-edge-region: ap-southeast-2
+x-served-by: supabase-edge-runtime
+Set-Cookie: __cf_bm=5yYJHuB3zLVozY9v0775ogzO9prjAayHFouvXGb2w8s-1774176115-1.0.1.1-ftk9ZseKiEgZqq1NlmHztOUWm0KoyWjGVVzCGosmN9IlFN0naVd1yIwv3g07B7Uq3HCS6iqOgmGTM835rfePL9rm6roZQbAuCK1KGs7TcEs; path=/; expires=Sun, 22-Mar-26 11:11:55 GMT; domain=.supabase.co; HttpOnly; Secure; SameSite=None
+alt-svc: h3=":443"; ma=86400
+
+{"error":"Missing deal_id"}

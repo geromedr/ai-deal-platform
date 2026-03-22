@@ -1,0 +1,21 @@
+HTTP/1.1 404 Not Found
+Date: Sun, 22 Mar 2026 10:19:40 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+Server: cloudflare
+CF-Ray: 9e047598de5aa352-SYD
+CF-Cache-Status: DYNAMIC
+Access-Control-Allow-Origin: *
+Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+Vary: Accept-Encoding
+access-control-allow-headers: authorization, x-client-info, apikey
+sb-gateway-version: 1
+sb-project-ref: fefbzgmvlcxkaarxttlu
+sb-request-id: 019d150e-bb91-7092-99c0-03088e773b2f
+x-sb-edge-region: ap-southeast-2
+x-served-by: supabase-edge-runtime
+Set-Cookie: __cf_bm=tX9BIct6kZBRvdgTGRnVxivnXoc4mI7Ca4_qfb1EUnM-1774174780-1.0.1.1-jBCb.5nNWehSgFnGs7FvOOcsZ0Wcm3pIxxgNxkRPeFmVeDxJ4xNouDcZxGcz0lIta7rZj9SpAIJ0ao5otkZiPbNAXLogeACGn0K5I3SChUM; path=/; expires=Sun, 22-Mar-26 10:49:40 GMT; domain=.supabase.co; HttpOnly; Secure; SameSite=None
+alt-svc: h3=":443"; ma=86400
+
+{"code":"NOT_FOUND","message":"Requested function was not found"}
