@@ -51,6 +51,41 @@ function cleanJsonBlock(text: string) {
   return text.replace("```json", "").replace("```", "").trim()
 }
 
+function buildFunctionHeaders(serviceKey: string, authorizationHeader: string | null) {
+  const normalizedRequestAuthorization =
+    typeof authorizationHeader === "string" && authorizationHeader.trim().length > 0
+      ? authorizationHeader.trim()
+      : null
+  const bearerToken = normalizedRequestAuthorization?.toLowerCase().startsWith("bearer ")
+    ? normalizedRequestAuthorization
+    : serviceKey.includes(".")
+      ? `Bearer ${serviceKey}`
+      : normalizedRequestAuthorization
+        ? `Bearer ${normalizedRequestAuthorization.replace(/^Bearer\s+/i, "")}`
+        : null
+
+  return {
+    "Content-Type": "application/json",
+    ...(bearerToken ? { "Authorization": bearerToken } : {}),
+    "apikey": serviceKey
+  }
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === "string") return message
+  }
+
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return "Unknown error"
+  }
+}
+
 serve(async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
@@ -68,6 +103,7 @@ serve(async (req) => {
 
   try {
     let payload: Record<string, unknown>
+    const requestAuthorizationHeader = req.headers.get("Authorization")
 
     try {
       payload = await req.json()
@@ -110,14 +146,15 @@ serve(async (req) => {
       return jsonResponse({ error: "Deal not found" }, 404)
     }
 
-    const { data: siteData, error: siteError } = await supabase
+    const { data: siteRows, error: siteError } = await supabase
       .from("site_intelligence")
       .select("deal_id, address, zoning, estimated_units, estimated_gfa")
       .eq("deal_id", deal_id)
-      .maybeSingle()
+      .order("updated_at", { ascending: false })
+      .limit(1)
 
     if (siteError) throw siteError
-    const site = siteData as SiteIntelligenceRow | null
+    const site = (siteRows?.[0] ?? null) as SiteIntelligenceRow | null
 
     const siteAddress = site?.address || deal.address || ""
     const suburb = deal.suburb || extractSuburbFromAddress(siteAddress)
@@ -143,11 +180,7 @@ serve(async (req) => {
 
     const knowledgeResponse = await fetch(`${supabaseUrl}/functions/v1/search-knowledge`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${serviceKey}`,
-        "apikey": serviceKey
-      },
+      headers: buildFunctionHeaders(serviceKey, requestAuthorizationHeader),
       body: JSON.stringify({ query: knowledgeQuery })
     })
 
@@ -320,7 +353,7 @@ Return JSON in this exact shape:
     console.error("comparable-sales-agent failed", error)
 
     return jsonResponse({
-      error: error instanceof Error ? error.message : "Unknown error"
+      error: getErrorMessage(error)
     }, 500)
   }
 })

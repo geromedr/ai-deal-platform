@@ -10,11 +10,17 @@ Validation:
 
 - endpoints return `400` for missing or malformed required inputs
 - endpoints return `500` for downstream or infrastructure failures
-- orchestration endpoints may return `200` with warnings when cached data is reused after a refresh failure
+- resilient orchestration endpoints may return `200` with warnings when cached data is reused, optional stages are skipped, or partial data is returned safely
 
 ## Example: site-intelligence-agent
 
 POST `/functions/v1/site-intelligence-agent`
+
+Validation notes:
+- `deal_id` must be a non-empty UUID
+- `address` is required
+- final report generation is gated by `REPORT_TRIGGER_SCORE_THRESHOLD` in the function environment
+- bootstrap, cached-data fallback, and pipeline logging issues are returned in `warnings` / `results` instead of crashing the request when partial execution can continue
 
 Request:
 
@@ -35,6 +41,10 @@ Response:
   "deal_id": "11111111-1111-1111-1111-111111111111",
   "address": "12 Marine Parade, Kingscliff NSW 2487",
   "pipeline_completed": true,
+  "ranking_score": 40,
+  "report_trigger_threshold": 50,
+  "report_triggered": false,
+  "report_trigger_reason": "Skipped because parcel score 40 was below threshold 50",
   "completed_stages": [
     "zoning-agent",
     "flood-agent",
@@ -50,15 +60,13 @@ Response:
   "failed_stages": [],
   "critical_failed_stages": [],
   "skipped_stages": [
-    "comparable-sales-agent"
+    "comparable-sales-agent",
+    "deal-report-agent"
   ],
   "warnings": [
     "comparable-sales-agent refresh failed; existing comparable estimate reused: OPENAI_API_KEY not set"
   ],
-  "final_report": {
-    "success": true,
-    "deal_id": "11111111-1111-1111-1111-111111111111"
-  }
+  "final_report": null
 }
 ```
 
@@ -405,13 +413,15 @@ Validation notes:
 - `deal_id` must be a non-empty UUID
 - malformed identifiers return `400`
 - unknown but well-formed deal IDs return `404`
-- resilience mode keeps report generation alive with partial `data`, `warnings`, and preserved top-level fields when downstream agents fail
+- `use_comparable_sales` is optional and defaults to `true`
+- resilience mode keeps report generation alive with partial `data`, `warnings`, and preserved top-level fields when downstream agents, optional database reads, or action logging fail
 
 Request:
 
 ```json
 {
-  "deal_id": "11111111-1111-1111-1111-111111111111"
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "use_comparable_sales": true
 }
 ```
 

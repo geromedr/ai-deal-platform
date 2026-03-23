@@ -152,6 +152,21 @@ function isUuid(value: string) {
   )
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === "string") return message
+  }
+
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return "Unknown error"
+  }
+}
+
 async function callAgent(
   supabaseUrl: string,
   serviceRoleKey: string,
@@ -381,7 +396,7 @@ serve(async (req) => {
       return jsonResponse({ error: "Supabase environment variables not set" }, 500)
     }
 
-    let payload: { deal_id?: string }
+    let payload: { deal_id?: string; use_comparable_sales?: boolean }
 
     try {
       payload = await req.json()
@@ -393,7 +408,15 @@ serve(async (req) => {
       return jsonResponse({ error: "deal_id must be a string" }, 400)
     }
 
+    if (
+      payload.use_comparable_sales !== undefined &&
+      typeof payload.use_comparable_sales !== "boolean"
+    ) {
+      return jsonResponse({ error: "use_comparable_sales must be a boolean" }, 400)
+    }
+
     deal_id = typeof payload.deal_id === "string" ? payload.deal_id.trim() : ""
+    const useComparableSales = payload.use_comparable_sales !== false
 
     if (!deal_id) {
       return jsonResponse({ error: "Missing deal_id" }, 400)
@@ -511,30 +534,38 @@ serve(async (req) => {
       }
     }
 
-    try {
-      console.log("deal-report-agent downstream call", { deal_id, agent: "comparable-sales-agent" })
-      const comparableRefreshResult = await invokeFunction(
-        supabaseUrl,
-        serviceKey,
-        requestAuthorizationHeader,
-        "comparable-sales-agent",
-        {
-          deal_id,
-          radius_km: 5,
-          dwelling_type: "apartment"
-        }
-      )
-
-      stage_results["comparable-sales-agent"] = comparableRefreshResult
-      if (!comparableRefreshResult.success) {
-        addWarning("comparable-sales-agent", "Failed to fetch data", comparableRefreshResult.error || "unknown error")
-      }
-    } catch (error) {
+    if (!useComparableSales) {
       stage_results["comparable-sales-agent"] = {
-        success: false,
-        error: error instanceof Error ? error.message : "unknown error"
+        success: true,
+        skipped: true,
+        reason: "Skipped because use_comparable_sales was disabled"
       }
-      addWarning("comparable-sales-agent", "Failed to fetch data", error instanceof Error ? error.message : "unknown error")
+    } else {
+      try {
+        console.log("deal-report-agent downstream call", { deal_id, agent: "comparable-sales-agent" })
+        const comparableRefreshResult = await invokeFunction(
+          supabaseUrl,
+          serviceKey,
+          requestAuthorizationHeader,
+          "comparable-sales-agent",
+          {
+            deal_id,
+            radius_km: 5,
+            dwelling_type: "apartment"
+          }
+        )
+
+        stage_results["comparable-sales-agent"] = comparableRefreshResult
+        if (!comparableRefreshResult.success) {
+          addWarning("comparable-sales-agent", "Failed to fetch data", comparableRefreshResult.error || "unknown error")
+        }
+      } catch (error) {
+        stage_results["comparable-sales-agent"] = {
+          success: false,
+          error: error instanceof Error ? error.message : "unknown error"
+        }
+        addWarning("comparable-sales-agent", "Failed to fetch data", error instanceof Error ? error.message : "unknown error")
+      }
     }
 
     let financialEngineData: FinancialEngineResponse | null = null
@@ -548,7 +579,7 @@ serve(async (req) => {
         "yield-agent",
         {
           deal_id,
-          use_comparable_sales: true
+          use_comparable_sales: useComparableSales
         }
       )
       stage_results["yield-agent"] = yieldResult
@@ -573,7 +604,7 @@ serve(async (req) => {
         {
           deal_id,
           refresh_yield: false,
-          use_comparable_sales: true
+          use_comparable_sales: useComparableSales
         }
       )
       stage_results["financial-engine-agent"] = financialEngineResult
@@ -598,8 +629,7 @@ serve(async (req) => {
         requestAuthorizationHeader,
         "parcel-ranking-agent",
         {
-          limit: 200,
-          only_unranked: false
+          deal_id
         }
       )
       stage_results["parcel-ranking-agent"] = rankingRefreshResult
@@ -614,14 +644,24 @@ serve(async (req) => {
       addWarning("parcel-ranking-agent", "Failed to fetch data", error instanceof Error ? error.message : "unknown error")
     }
 
-    const { data: siteData, error: siteError } = await supabase
-      .from("site_intelligence")
-      .select("deal_id, address, zoning, fsr, height_limit, flood_risk, heritage_status, estimated_gfa, estimated_units, estimated_revenue, estimated_build_cost, estimated_profit")
-      .eq("deal_id", deal_id)
-      .maybeSingle()
+    let site: SiteIntelligenceRecord | null = null
+    try {
+      const { data: siteRows, error: siteError } = await supabase
+        .from("site_intelligence")
+        .select("deal_id, address, zoning, fsr, height_limit, flood_risk, heritage_status, estimated_gfa, estimated_units, estimated_revenue, estimated_build_cost, estimated_profit")
+        .eq("deal_id", deal_id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+      const siteData = siteRows?.[0] ?? null
 
-    if (siteError) throw siteError
-    const site = siteData as SiteIntelligenceRecord | null
+      if (siteError) {
+        addWarning("deal-report-agent", "Fallback used", getErrorMessage(siteError))
+      } else {
+        site = siteData as SiteIntelligenceRecord | null
+      }
+    } catch (error) {
+      addWarning("deal-report-agent", "Fallback used", getErrorMessage(error))
+    }
 
     const contextFinancials = Array.isArray(contextPayload?.financials)
       ? contextPayload?.financials
@@ -633,28 +673,82 @@ serve(async (req) => {
       null
 
     if (financialEngineData?.snapshot_id) {
-      const { data: refreshedFinancialSnapshot, error: refreshedFinancialError } = await supabase
-        .from("financial_snapshots")
-        .select("id, category, amount, gdv, tdc, notes, metadata, created_at")
-        .eq("id", financialEngineData.snapshot_id)
-        .maybeSingle()
+      try {
+        const { data: refreshedFinancialSnapshot, error: refreshedFinancialError } = await supabase
+          .from("financial_snapshots")
+          .select("id, category, amount, gdv, tdc, notes, metadata, created_at")
+          .eq("id", financialEngineData.snapshot_id)
+          .maybeSingle()
 
-      if (refreshedFinancialError) throw refreshedFinancialError
-      latestFinancial = (refreshedFinancialSnapshot as FinancialSnapshotRecord | null) || latestFinancial
+        if (refreshedFinancialError) {
+          addWarning("financial-engine-agent", "Fallback used", getErrorMessage(refreshedFinancialError))
+        } else {
+          latestFinancial =
+            (refreshedFinancialSnapshot as FinancialSnapshotRecord | null) || latestFinancial
+        }
+      } catch (error) {
+        addWarning("financial-engine-agent", "Fallback used", getErrorMessage(error))
+      }
     }
 
-    const latestComparable = await getLatestComparableEstimate(supabase, deal_id)
+    let latestComparable: ComparableEstimateRecord | null = null
+    try {
+      latestComparable = await getLatestComparableEstimate(supabase, deal_id)
+    } catch (error) {
+      addWarning("comparable-sales-agent", "Fallback used", getErrorMessage(error))
+    }
 
-    const { data: rankingData, error: rankingError } = await supabase
-      .from("site_candidates")
-      .select("address, ranking_score, ranking_tier, ranking_reasons")
-      .eq("address", site?.address || address)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    let ranking: RankingCandidateRecord | null = null
+    try {
+      const { data: rankingData, error: rankingError } = await supabase
+        .from("site_candidates")
+        .select("address, ranking_score, ranking_tier, ranking_reasons")
+        .eq("address", site?.address || address)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-    if (rankingError) throw rankingError
-    const ranking = rankingData as RankingCandidateRecord | null
+      if (rankingError) {
+        addWarning("parcel-ranking-agent", "Fallback used", getErrorMessage(rankingError))
+      } else {
+        ranking = rankingData as RankingCandidateRecord | null
+      }
+    } catch (error) {
+      addWarning("parcel-ranking-agent", "Fallback used", getErrorMessage(error))
+    }
+
+    if (!ranking) {
+      const rankingStageData =
+        stage_results["parcel-ranking-agent"]?.success &&
+        stage_results["parcel-ranking-agent"]?.data &&
+        typeof stage_results["parcel-ranking-agent"]?.data === "object"
+          ? stage_results["parcel-ranking-agent"]?.data as Record<string, unknown>
+          : null
+
+      if (rankingStageData) {
+        ranking = {
+          address,
+          ranking_score:
+            typeof rankingStageData.score === "number"
+              ? rankingStageData.score
+              : typeof rankingStageData.ranking_score === "number"
+                ? rankingStageData.ranking_score
+                : null,
+          ranking_tier:
+            typeof rankingStageData.tier === "string"
+              ? rankingStageData.tier as "A" | "B" | "C"
+              : typeof rankingStageData.ranking_tier === "string"
+                ? rankingStageData.ranking_tier as "A" | "B" | "C"
+                : null,
+          ranking_reasons:
+            typeof rankingStageData.reasoning === "string"
+              ? [{ summary: rankingStageData.reasoning }]
+              : typeof rankingStageData.reason === "string"
+                ? [{ summary: rankingStageData.reason }]
+                : null
+        }
+      }
+    }
 
     const feasibilityMetadata = latestFinancial?.metadata?.feasibility as Record<string, unknown> | undefined
 
@@ -787,17 +881,25 @@ ${JSON.stringify(report, null, 2)}
       addWarning("ai-agent", "Failed to fetch data", aiResponse.error || "unknown error")
     }
 
-    await supabase.from("ai_actions").insert({
-      deal_id,
-      agent: "deal-report-agent",
-      action: "investment_report_generated",
-      payload: {
-        summary_source: summarySource,
-        warnings,
-        stage_results,
-        report
+    try {
+      const { error: actionLogError } = await supabase.from("ai_actions").insert({
+        deal_id,
+        agent: "deal-report-agent",
+        action: "investment_report_generated",
+        payload: {
+          summary_source: summarySource,
+          warnings,
+          stage_results,
+          report
+        }
+      })
+
+      if (actionLogError) {
+        addWarning("deal-report-agent", "Failed to persist action log", getErrorMessage(actionLogError))
       }
-    })
+    } catch (error) {
+      addWarning("deal-report-agent", "Failed to persist action log", getErrorMessage(error))
+    }
 
     console.log("deal-report-agent processing complete", {
       deal_id,

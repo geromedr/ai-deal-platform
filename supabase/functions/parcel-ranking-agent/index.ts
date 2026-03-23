@@ -538,12 +538,18 @@ serve(async (req) => {
       const { score, tier, breakdown, reasoning, factors } = ranking
 
       const upsertCandidateResponse = await fetch(
-        `${supabaseUrl}/rest/v1/site_candidates?source=eq.site-intelligence-agent&external_id=eq.${deal_id}`,
+        `${supabaseUrl}/rest/v1/site_candidates?on_conflict=source,external_id`,
         {
-          method: "PATCH",
-          headers: buildHeaders(serviceKey),
+          method: "POST",
+          headers: {
+            ...buildHeaders(serviceKey),
+            "Prefer": "resolution=merge-duplicates,return=minimal"
+          },
           body: JSON.stringify({
+            source: "site-intelligence-agent",
+            external_id: deal_id,
             address: input.address,
+            property_type: "development-site",
             land_area: input.site_size,
             zoning: input.zoning,
             height_limit: input.height_limit,

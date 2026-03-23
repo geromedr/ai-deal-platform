@@ -8,6 +8,14 @@ type SiteIntelligenceRequest = {
   use_comparable_sales?: boolean
 }
 
+type RankingAgentResponse = {
+  success?: boolean
+  score?: number
+  tier?: "A" | "B" | "C"
+  reasoning?: string
+  reason?: string
+}
+
 type StageResult = {
   success: boolean
   skipped?: boolean
@@ -29,6 +37,12 @@ type SiteRow = {
   estimated_profit?: number | null
 }
 
+type WarningEntry = {
+  agent: string
+  issue: string
+  message: string
+}
+
 type PipelineRun = {
   results: Record<string, StageResult>
   completed_stages: string[]
@@ -39,6 +53,7 @@ type PipelineRun = {
 
 const PIPELINE_ACTION = "site_pipeline_completed"
 const PIPELINE_COOLDOWN_MS = 5 * 60 * 1000
+const DEFAULT_REPORT_TRIGGER_SCORE_THRESHOLD = 50
 const CRITICAL_STAGES = new Set([
   "zoning-agent",
   "flood-agent",
@@ -58,7 +73,58 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
-function buildFunctionHeaders(serviceKey: string) {
+function getEnvNumber(name: string, fallback: number) {
+  const value = Deno.env.get(name)
+  if (!value) return fallback
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  if (error && typeof error === "object") {
+    if ("message" in error && typeof (error as { message?: unknown }).message === "string") {
+      return String((error as { message?: unknown }).message)
+    }
+
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return "Unknown error"
+    }
+  }
+
+  return "Unknown error"
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  )
+}
+
+function buildFunctionHeaders(serviceKey: string, authorizationHeader: string | null) {
+  const normalizedRequestAuthorization =
+    typeof authorizationHeader === "string" && authorizationHeader.trim().length > 0
+      ? authorizationHeader.trim()
+      : null
+  const bearerToken = normalizedRequestAuthorization?.toLowerCase().startsWith("bearer ")
+    ? normalizedRequestAuthorization
+    : serviceKey.includes(".")
+      ? `Bearer ${serviceKey}`
+      : normalizedRequestAuthorization
+        ? `Bearer ${normalizedRequestAuthorization.replace(/^Bearer\s+/i, "")}`
+        : null
+
+  return {
+    "Content-Type": "application/json",
+    ...(bearerToken ? { "Authorization": bearerToken } : {}),
+    "apikey": serviceKey
+  }
+}
+
+function buildRestHeaders(serviceKey: string) {
   return {
     "Content-Type": "application/json",
     "Authorization": `Bearer ${serviceKey}`,
@@ -66,8 +132,32 @@ function buildFunctionHeaders(serviceKey: string) {
   }
 }
 
+async function fetchLatestSiteRow(
+  supabaseUrl: string,
+  serviceKey: string,
+  deal_id: string,
+  selectClause =
+    "deal_id,address,zoning,fsr,height_limit,flood_risk,heritage_status,site_area,estimated_units,estimated_profit"
+) {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/site_intelligence?deal_id=eq.${deal_id}&select=${encodeURIComponent(selectClause)}&order=updated_at.desc&limit=1`,
+    {
+      headers: buildRestHeaders(serviceKey)
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to load site intelligence: ${await response.text()}`)
+  }
+
+  const rows = await response.json() as SiteRow[]
+  return rows[0] ?? null
+}
+
 async function ensureDealAndSite(
   supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  serviceKey: string,
   deal_id: string,
   address: string
 ) {
@@ -84,15 +174,14 @@ async function ensureDealAndSite(
       { onConflict: "id" }
     )
 
-  if (dealError) throw dealError
+  if (dealError) throw new Error(`Failed to upsert deal: ${getErrorMessage(dealError)}`)
 
-  const { data: existingSite, error: existingSiteError } = await supabase
-    .from("site_intelligence")
-    .select("deal_id")
-    .eq("deal_id", deal_id)
-    .maybeSingle()
-
-  if (existingSiteError) throw existingSiteError
+  const existingSite = await fetchLatestSiteRow(
+    supabaseUrl,
+    serviceKey,
+    deal_id,
+    "deal_id,address"
+  )
 
   if (existingSite?.deal_id) {
     const { error: updateError } = await supabase
@@ -100,7 +189,9 @@ async function ensureDealAndSite(
       .update({ address })
       .eq("deal_id", deal_id)
 
-    if (updateError) throw updateError
+    if (updateError) {
+      throw new Error(`Failed to update site intelligence: ${getErrorMessage(updateError)}`)
+    }
     return
   }
 
@@ -111,7 +202,9 @@ async function ensureDealAndSite(
       address
     })
 
-  if (insertError) throw insertError
+  if (insertError) {
+    throw new Error(`Failed to insert site intelligence: ${getErrorMessage(insertError)}`)
+  }
 }
 
 async function shouldSkipPipeline(
@@ -142,6 +235,7 @@ async function shouldSkipPipeline(
 async function invokeAgent(
   supabaseUrl: string,
   serviceKey: string,
+  authorizationHeader: string | null,
   agent: string,
   payload: Record<string, unknown>
 ): Promise<StageResult> {
@@ -150,7 +244,7 @@ async function invokeAgent(
 
     const response = await fetch(`${supabaseUrl}/functions/v1/${agent}`, {
       method: "POST",
-      headers: buildFunctionHeaders(serviceKey),
+      headers: buildFunctionHeaders(serviceKey, authorizationHeader),
       body: JSON.stringify(payload)
     })
 
@@ -188,7 +282,7 @@ async function invokeAgent(
       data
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    const errorMessage = getErrorMessage(error)
 
     console.log("site-intelligence-agent stage exception", {
       agent,
@@ -203,27 +297,35 @@ async function invokeAgent(
 }
 
 async function getSiteRow(
+  supabaseUrl: string,
+  serviceKey: string,
+  deal_id: string
+) {
+  return await fetchLatestSiteRow(supabaseUrl, serviceKey, deal_id)
+}
+
+async function dealExists(
   supabase: ReturnType<typeof createClient>,
   deal_id: string
 ) {
   const { data, error } = await supabase
-    .from("site_intelligence")
-    .select(
-      "deal_id, address, zoning, fsr, height_limit, flood_risk, heritage_status, site_area, estimated_units, estimated_profit"
-    )
-    .eq("deal_id", deal_id)
+    .from("deals")
+    .select("id")
+    .eq("id", deal_id)
     .maybeSingle()
 
   if (error) throw error
-  return data as SiteRow | null
+  return Boolean(data?.id)
 }
 
 async function upsertSiteCandidate(
   supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  serviceKey: string,
   deal_id: string,
   address: string
 ) {
-  const site = await getSiteRow(supabase, deal_id)
+  const site = await getSiteRow(supabaseUrl, serviceKey, deal_id)
 
   const { error } = await supabase
     .from("site_candidates")
@@ -249,7 +351,7 @@ async function upsertSiteCandidate(
       { onConflict: "source,external_id" }
     )
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to upsert site candidate: ${getErrorMessage(error)}`)
 }
 
 async function hasComparableEstimate(
@@ -276,7 +378,13 @@ function hasUsableCachedPlanningValue(value: unknown) {
 async function logPipeline(
   supabase: ReturnType<typeof createClient>,
   deal_id: string,
-  run: PipelineRun
+  run: PipelineRun,
+  decision?: {
+    ranking_score: number | null
+    report_trigger_threshold: number
+    report_triggered: boolean
+    report_trigger_reason: string
+  }
 ) {
   const { error } = await supabase
     .from("ai_actions")
@@ -289,11 +397,12 @@ async function logPipeline(
         failed_stages: run.failed_stages,
         skipped_stages: run.skipped_stages,
         warnings: run.warnings,
-        results: run.results
+        results: run.results,
+        decision
       }
     })
 
-  if (error) throw error
+  if (error) throw new Error(`Failed to log pipeline: ${getErrorMessage(error)}`)
 }
 
 serve(async (req) => {
@@ -303,11 +412,16 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+  const reportTriggerThreshold = getEnvNumber(
+    "REPORT_TRIGGER_SCORE_THRESHOLD",
+    DEFAULT_REPORT_TRIGGER_SCORE_THRESHOLD
+  )
 
   if (!supabaseUrl) return jsonResponse({ error: "SUPABASE_URL not set" }, 500)
   if (!serviceKey) return jsonResponse({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }, 500)
 
   try {
+    const requestAuthorizationHeader = req.headers.get("Authorization")
     let payload: SiteIntelligenceRequest
 
     try {
@@ -346,35 +460,22 @@ serve(async (req) => {
       }, 400)
     }
 
+    if (!isUuid(deal_id)) {
+      return jsonResponse({
+        error: "deal_id must be a valid UUID",
+        received: payload
+      }, 400)
+    }
+
     console.log("site-intelligence-agent request received", {
       deal_id,
       address,
       force_refresh: forceRefresh,
-      use_comparable_sales: useComparableSales
+      use_comparable_sales: useComparableSales,
+      report_trigger_score_threshold: reportTriggerThreshold
     })
 
     const supabase = createClient(supabaseUrl, serviceKey)
-
-    await ensureDealAndSite(supabase, deal_id, address)
-
-    if (await shouldSkipPipeline(supabase, deal_id, forceRefresh)) {
-      const skippedResults: Record<string, StageResult> = {
-        pipeline: {
-          success: true,
-          skipped: true,
-          reason: "Recent pipeline run detected; skipping duplicate execution"
-        }
-      }
-
-      return jsonResponse({
-        success: true,
-        deal_id,
-        address,
-        skipped: true,
-        reason: "Recent pipeline run detected; skipping duplicate execution",
-        results: skippedResults
-      })
-    }
 
     const run: PipelineRun = {
       results: {},
@@ -382,6 +483,105 @@ serve(async (req) => {
       failed_stages: [],
       skipped_stages: [],
       warnings: []
+    }
+
+    const addWarning = (warning: WarningEntry) => {
+      console.warn("site-intelligence-agent warning", { deal_id, ...warning })
+      run.warnings.push(`${warning.agent}: ${warning.message}`)
+    }
+
+    let bootstrapReady = true
+    try {
+      await ensureDealAndSite(supabase, supabaseUrl, serviceKey, deal_id, address)
+      run.results["bootstrap"] = {
+        success: true,
+        data: {
+          deal_id,
+          address
+        }
+      }
+      run.completed_stages.push("bootstrap")
+    } catch (error) {
+      bootstrapReady = false
+      const message = getErrorMessage(error)
+      run.results["bootstrap"] = {
+        success: false,
+        error: message
+      }
+      run.failed_stages.push("bootstrap")
+      addWarning({
+        agent: "bootstrap",
+        issue: "Failed to ensure deal and site",
+        message
+      })
+
+      try {
+        const [existingDeal, existingSite] = await Promise.all([
+          dealExists(supabase, deal_id),
+          getSiteRow(supabaseUrl, serviceKey, deal_id).catch(() => null)
+        ])
+
+        if (existingDeal || existingSite) {
+          bootstrapReady = true
+          run.results["bootstrap"] = {
+            success: true,
+            skipped: true,
+            reason: "Continuing with existing persisted deal/site data after bootstrap failure",
+            data: {
+              existing_deal: existingDeal,
+              existing_site: Boolean(existingSite)
+            }
+          }
+          run.completed_stages.push("bootstrap")
+          run.skipped_stages.push("bootstrap")
+          run.failed_stages = run.failed_stages.filter((stage) => stage !== "bootstrap")
+        }
+      } catch (bootstrapFallbackError) {
+        addWarning({
+          agent: "bootstrap",
+          issue: "Fallback check failed",
+          message: getErrorMessage(bootstrapFallbackError)
+        })
+      }
+    }
+
+    if (bootstrapReady) {
+      try {
+        if (await shouldSkipPipeline(supabase, deal_id, forceRefresh)) {
+          const skippedResults: Record<string, StageResult> = {
+            ...run.results,
+            pipeline: {
+              success: true,
+              skipped: true,
+              reason: "Recent pipeline run detected; skipping duplicate execution"
+            }
+          }
+
+          return jsonResponse({
+            success: true,
+            deal_id,
+            address,
+            skipped: true,
+            reason: "Recent pipeline run detected; skipping duplicate execution",
+            ranking_score: null,
+            report_trigger_threshold: reportTriggerThreshold,
+            report_triggered: false,
+            report_trigger_reason: "Skipped duplicate pipeline run",
+            warnings: run.warnings,
+            results: skippedResults
+          })
+        }
+      } catch (error) {
+        addWarning({
+          agent: "pipeline-deduplication",
+          issue: "Failed to evaluate duplicate execution window",
+          message: getErrorMessage(error)
+        })
+        run.results["pipeline-deduplication"] = {
+          success: false,
+          error: getErrorMessage(error)
+        }
+      }
     }
 
     const planningAgents = [
@@ -394,7 +594,10 @@ serve(async (req) => {
 
     const planningResults = await Promise.all(
       planningAgents.map((agent) =>
-        invokeAgent(supabaseUrl, serviceKey, agent, { deal_id, address })
+        invokeAgent(supabaseUrl, serviceKey, requestAuthorizationHeader, agent, {
+          deal_id,
+          address
+        })
           .then((result) => ({ agent, result }))
       )
     )
@@ -403,7 +606,16 @@ serve(async (req) => {
       let normalizedResult = result
 
       if (!result.success) {
-        const cachedSite = await getSiteRow(supabase, deal_id)
+        let cachedSite: SiteRow | null = null
+        try {
+          cachedSite = await getSiteRow(supabaseUrl, serviceKey, deal_id)
+        } catch (error) {
+          addWarning({
+            agent,
+            issue: "Failed to load cached planning data",
+            message: getErrorMessage(error)
+          })
+        }
         const cachedValueByAgent: Record<string, unknown> = {
           "zoning-agent": cachedSite?.zoning,
           "flood-agent": cachedSite?.flood_risk,
@@ -420,9 +632,11 @@ serve(async (req) => {
             data: result.data
           }
 
-          run.warnings.push(
-            `${agent} refresh failed; cached planning data reused: ${result.error || "unknown error"}`
-          )
+          addWarning({
+            agent,
+            issue: "Refresh failed; cached planning data reused",
+            message: result.error || "unknown error"
+          })
         }
       }
 
@@ -437,30 +651,49 @@ serve(async (req) => {
       }
     }
 
-    const comparableResult = await invokeAgent(
-      supabaseUrl,
-      serviceKey,
-      "comparable-sales-agent",
-      {
-        deal_id,
-        radius_km: 5,
-        dwelling_type: "apartment"
-      }
-    )
+    const comparableResult = useComparableSales
+      ? await invokeAgent(
+          supabaseUrl,
+          serviceKey,
+          requestAuthorizationHeader,
+          "comparable-sales-agent",
+          {
+            deal_id,
+            radius_km: 5,
+            dwelling_type: "apartment"
+          }
+        )
+      : {
+          success: true,
+          skipped: true,
+          reason: "Skipped because use_comparable_sales was disabled"
+        }
 
     let normalizedComparableResult = comparableResult
 
-    if (!comparableResult.success && await hasComparableEstimate(supabase, deal_id)) {
-      normalizedComparableResult = {
-        success: true,
-        skipped: true,
-        reason: "Using existing comparable sales estimate after refresh attempt failed",
-        data: comparableResult.data
-      }
+    if (useComparableSales && !comparableResult.success) {
+      try {
+        if (await hasComparableEstimate(supabase, deal_id)) {
+          normalizedComparableResult = {
+            success: true,
+            skipped: true,
+            reason: "Using existing comparable sales estimate after refresh attempt failed",
+            data: comparableResult.data
+          }
 
-      run.warnings.push(
-        `comparable-sales-agent refresh failed; existing comparable estimate reused: ${comparableResult.error || "unknown error"}`
-      )
+          addWarning({
+            agent: "comparable-sales-agent",
+            issue: "Refresh failed; cached comparable estimate reused",
+            message: comparableResult.error || "unknown error"
+          })
+        }
+      } catch (error) {
+        addWarning({
+          agent: "comparable-sales-agent",
+          issue: "Failed to check cached comparable estimate",
+          message: getErrorMessage(error)
+        })
+      }
     }
 
     run.results["comparable-sales-agent"] = normalizedComparableResult
@@ -471,14 +704,17 @@ serve(async (req) => {
       }
     } else {
       run.failed_stages.push("comparable-sales-agent")
-      run.warnings.push(
-        `comparable-sales-agent failed and no cached estimate was available: ${normalizedComparableResult.error || "unknown error"}`
-      )
+      addWarning({
+        agent: "comparable-sales-agent",
+        issue: "Comparable refresh failed without usable fallback",
+        message: normalizedComparableResult.error || "unknown error"
+      })
     }
 
     const yieldResult = await invokeAgent(
       supabaseUrl,
       serviceKey,
+      requestAuthorizationHeader,
       "yield-agent",
       {
         deal_id,
@@ -497,6 +733,7 @@ serve(async (req) => {
       ? await invokeAgent(
           supabaseUrl,
           serviceKey,
+          requestAuthorizationHeader,
           "financial-engine-agent",
           {
             deal_id,
@@ -519,15 +756,27 @@ serve(async (req) => {
       run.failed_stages.push("financial-engine-agent")
     }
 
-    await upsertSiteCandidate(supabase, deal_id, address)
+    try {
+      await upsertSiteCandidate(supabase, supabaseUrl, serviceKey, deal_id, address)
+    } catch (error) {
+      addWarning({
+        agent: "site-candidate-persistence",
+        issue: "Failed to persist site candidate",
+        message: getErrorMessage(error)
+      })
+      run.results["site-candidate-persistence"] = {
+        success: false,
+        error: getErrorMessage(error)
+      }
+    }
 
     const rankingResult = await invokeAgent(
       supabaseUrl,
       serviceKey,
+      requestAuthorizationHeader,
       "parcel-ranking-agent",
       {
-        limit: 200,
-        only_unranked: false
+        deal_id
       }
     )
 
@@ -538,38 +787,90 @@ serve(async (req) => {
       run.failed_stages.push("parcel-ranking-agent")
     }
 
-    const reportResult = await invokeAgent(
-      supabaseUrl,
-      serviceKey,
-      "deal-report-agent",
-      {
-        deal_id
-      }
-    )
+    const rankingData =
+      rankingResult.success && rankingResult.data && typeof rankingResult.data === "object"
+        ? rankingResult.data as RankingAgentResponse
+        : null
+    const rankingScore = typeof rankingData?.score === "number" ? rankingData.score : null
+    const reportShouldRun =
+      rankingResult.success && rankingScore !== null && rankingScore >= reportTriggerThreshold
+    const reportTriggerReason = !rankingResult.success
+      ? "Skipped because parcel-ranking-agent did not complete successfully"
+      : rankingScore === null
+        ? "Skipped because parcel-ranking-agent did not return a score"
+        : rankingScore >= reportTriggerThreshold
+          ? `Triggered because parcel score ${rankingScore} met threshold ${reportTriggerThreshold}`
+          : `Skipped because parcel score ${rankingScore} was below threshold ${reportTriggerThreshold}`
+
+    const reportResult = reportShouldRun
+      ? await invokeAgent(
+          supabaseUrl,
+          serviceKey,
+          requestAuthorizationHeader,
+          "deal-report-agent",
+          {
+            deal_id,
+            use_comparable_sales: useComparableSales
+          }
+        )
+      : {
+          success: true,
+          skipped: true,
+          reason: reportTriggerReason,
+          data: {
+            report_triggered: false,
+            ranking_score: rankingScore,
+            threshold: reportTriggerThreshold
+          }
+        }
 
     run.results["deal-report-agent"] = reportResult
     if (reportResult.success) {
       run.completed_stages.push("deal-report-agent")
+      if (reportResult.skipped) {
+        run.skipped_stages.push("deal-report-agent")
+      }
     } else {
       run.failed_stages.push("deal-report-agent")
     }
 
     const criticalFailedStages = run.failed_stages.filter((stage) => CRITICAL_STAGES.has(stage))
 
-    await logPipeline(supabase, deal_id, run)
+    try {
+      await logPipeline(supabase, deal_id, run, {
+        ranking_score: rankingScore,
+        report_trigger_threshold: reportTriggerThreshold,
+        report_triggered: reportShouldRun,
+        report_trigger_reason: reportTriggerReason
+      })
+    } catch (error) {
+      addWarning({
+        agent: "pipeline-log",
+        issue: "Failed to persist pipeline log",
+        message: getErrorMessage(error)
+      })
+      run.results["pipeline-log"] = {
+        success: false,
+        error: getErrorMessage(error)
+      }
+    }
 
     return jsonResponse({
       success: true,
       deal_id,
       address,
       pipeline_completed: criticalFailedStages.length === 0,
+      ranking_score: rankingScore,
+      report_trigger_threshold: reportTriggerThreshold,
+      report_triggered: reportShouldRun,
+      report_trigger_reason: reportTriggerReason,
       completed_stages: run.completed_stages,
       failed_stages: run.failed_stages,
       critical_failed_stages: criticalFailedStages,
       skipped_stages: run.skipped_stages,
       warnings: run.warnings,
       final_report:
-        run.results["deal-report-agent"]?.success
+        run.results["deal-report-agent"]?.success && !run.results["deal-report-agent"]?.skipped
           ? run.results["deal-report-agent"].data
           : null,
       results: run.results
@@ -578,7 +879,7 @@ serve(async (req) => {
     console.error("site-intelligence-agent failed", error)
 
     return jsonResponse({
-      error: error instanceof Error ? error.message : "Unknown error"
+      error: getErrorMessage(error)
     }, 500)
   }
 })

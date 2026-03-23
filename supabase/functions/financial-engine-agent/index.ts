@@ -109,6 +109,9 @@ const DEFAULT_PROFESSIONAL_FEES_RATE = 0.09
 const DEFAULT_MARKETING_RATE = 0.035
 const DEFAULT_FINANCE_RATE = 0.05
 const DEFAULT_DEVELOPER_MARGIN_TARGET_RATE = 0.18
+const DEFAULT_FALLBACK_SITE_AREA = 1000
+const DEFAULT_FALLBACK_FSR = 1
+const DEFAULT_AVG_UNIT_SIZE = 90
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -158,6 +161,29 @@ function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     value
   )
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message
+    if (typeof message === "string") return message
+  }
+
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return "Unknown error"
+  }
+}
+
+function buildRestHeaders(serviceKey: string) {
+  return {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${serviceKey}`,
+    "apikey": serviceKey
+  }
 }
 
 async function callAgent(
@@ -446,16 +472,19 @@ serve(async (req) => {
       }
     }
 
-    const { data: siteData, error: siteError } = await supabase
-      .from("site_intelligence")
-      .select(
-        "deal_id, address, zoning, fsr, height_limit, flood_risk, heritage_status, site_area, estimated_gfa, estimated_units, estimated_revenue, estimated_build_cost, estimated_profit"
-      )
-      .eq("deal_id", deal_id)
-      .maybeSingle()
+    const siteResponse = await fetch(
+      `${supabaseUrl}/rest/v1/site_intelligence?deal_id=eq.${deal_id}&select=deal_id,address,zoning,fsr,height_limit,flood_risk,heritage_status,site_area,estimated_gfa,estimated_units,estimated_revenue,estimated_build_cost,estimated_profit&order=updated_at.desc&limit=1`,
+      {
+        headers: buildRestHeaders(serviceKey)
+      }
+    )
 
-    if (siteError) throw siteError
-    const site = siteData as SiteIntelligenceRow | null
+    if (!siteResponse.ok) {
+      throw new Error(`Failed to load site intelligence: ${await siteResponse.text()}`)
+    }
+
+    const siteRows = await siteResponse.json() as SiteIntelligenceRow[]
+    const site = siteRows[0] ?? null
 
     if (!site) {
       addWarning("financial-engine-agent", "Fallback used", "No site intelligence found")
@@ -508,8 +537,15 @@ serve(async (req) => {
         error: validationError instanceof Error ? validationError.message : "Invalid assumptions"
       }, 400)
     }
-    const estimatedGfa = parseNumberLoose(site.estimated_gfa)
+    const fallbackSiteArea = parseNumberLoose(site.site_area) ?? DEFAULT_FALLBACK_SITE_AREA
+    const fallbackFsr = parseNumberLoose(site.fsr) ?? DEFAULT_FALLBACK_FSR
+    const estimatedGfa =
+      parseNumberLoose(site.estimated_gfa) ??
+      roundCurrency(fallbackSiteArea * fallbackFsr)
     const existingRevenue = parseNumberLoose(site.estimated_revenue)
+    const resolvedEstimatedUnits =
+      site.estimated_units ??
+      Math.max(1, Math.floor(estimatedGfa / DEFAULT_AVG_UNIT_SIZE))
 
     if (estimatedGfa === null || estimatedGfa <= 0) {
       addWarning("financial-engine-agent", "Fallback used", "Estimated GFA is unavailable for financial modelling")
@@ -611,7 +647,7 @@ serve(async (req) => {
           flood_risk: site.flood_risk || null,
           heritage_status: site.heritage_status || null
         },
-        estimated_units: site.estimated_units ?? null,
+        estimated_units: resolvedEstimatedUnits,
         comparable_sales: {
           ...(latestComparable || {}),
           nearby_developments: nearbyDevelopments
@@ -669,7 +705,7 @@ serve(async (req) => {
       metadata: {
         source_agent: "financial-engine-agent",
         address: site.address || null,
-        estimated_units: site.estimated_units ?? null,
+        estimated_units: resolvedEstimatedUnits,
         planning_constraints: {
           zoning: site.zoning || null,
           fsr: site.fsr || null,
@@ -760,7 +796,7 @@ serve(async (req) => {
         flood_risk: site.flood_risk || null,
         heritage_status: site.heritage_status || null
       },
-      estimated_units: site.estimated_units ?? null,
+      estimated_units: resolvedEstimatedUnits,
       comparable_sales: {
         ...(latestComparable || {}),
         nearby_developments: nearbyDevelopments
@@ -820,12 +856,12 @@ serve(async (req) => {
         {
           agent: "financial-engine-agent",
           issue: "Unhandled processing error",
-          message: error instanceof Error ? error.message : "Unknown error"
+          message: getErrorMessage(error)
         }
       ],
       warning_messages: [
         ...warnings.map((warning) => `${warning.agent}: ${warning.message}`),
-        `financial-engine-agent: ${error instanceof Error ? error.message : "Unknown error"}`
+        `financial-engine-agent: ${getErrorMessage(error)}`
       ],
       data: {
         deal_id,

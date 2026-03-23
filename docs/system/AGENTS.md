@@ -17,7 +17,7 @@ Advances a deal by requesting context, reasoning on next actions, and delegating
 Aggregates analysis outputs and records risks, milestones, and financial insights.
 
 ### deal-report-agent
-Generates the final investment-ready report for a development opportunity by aggregating get-deal, get-deal-context, planning refreshes, yield, financial snapshots, comparable sales, and ranking data into structured JSON plus a human-readable summary, with strict deal ID validation, warning-driven partial results, and fallback-safe downstream handling.
+Generates the final investment-ready report for a development opportunity by aggregating get-deal, get-deal-context, planning refreshes, yield, financial snapshots, comparable sales, and ranking data into structured JSON plus a human-readable summary, with strict deal ID validation, warning-driven partial results, fallback-safe downstream handling, and direct database fallbacks when optional reads or logging fail.
 
 ### create-task
 Creates task records linked to deals.
@@ -42,7 +42,7 @@ Logs request payloads and returns a success response for testing.
 ## Planning Intelligence
 
 ### site-intelligence-agent
-Runs the end-to-end site pipeline for a subject site, sequencing planning agents, comparable sales, yield, financial modelling, parcel ranking, and final deal reporting.
+Runs the end-to-end site pipeline for a subject site, sequencing planning agents, optional comparable sales, yield, financial modelling, and deal-specific parcel ranking, then triggering deal-report-agent only when the ranking score meets the configured report threshold while returning structured decision metadata, bootstrap/persistence warnings, and skip reasons.
 
 ### zoning-agent
 Retrieves zoning controls.
@@ -74,7 +74,7 @@ Collects development application discovery opportunities.
 Submits candidate sites into the analysis pipeline and scoring workflow.
 
 ### parcel-ranking-agent
-Ranks development opportunities using a weighted scoring model across zoning, FSR, height, site size, yield, financial margin, and comparable sales strength, supporting both `deal_id` scoring and existing batch candidate ranking with strict mode-specific request validation.
+Ranks development opportunities using a weighted scoring model across zoning, FSR, height, site size, yield, financial margin, and comparable sales strength, supporting both `deal_id` scoring and existing batch candidate ranking with strict mode-specific request validation and reliable persisted ranking upserts in hosted environments.
 
 ## Feasibility
 
@@ -82,7 +82,7 @@ Ranks development opportunities using a weighted scoring model across zoning, FS
 Estimates development yield.
 
 ### comparable-sales-agent
-Finds nearby comparable developments and estimates sale price per sqm.
+Finds nearby comparable developments and estimates sale price per sqm, using standard internal function auth and resilient site-context lookup when legacy environments contain duplicate `site_intelligence` rows.
 
 ### add-financial-snapshot
 Stores financial assumptions and snapshots.
