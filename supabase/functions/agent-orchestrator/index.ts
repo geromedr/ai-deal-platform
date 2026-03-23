@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import {
+  insertRiskWithCompatibility,
+  insertTaskWithCompatibility
+} from "../_shared/action-layer-compat.ts"
 
 type ActionDetails = Record<string, unknown>
 
@@ -81,22 +85,30 @@ serve(async (req) => {
       const details = isRecord(rawAction.details) ? rawAction.details : {}
 
       if (rawAction.action === "task_create") {
-        const { error } = await supabase
-          .from("tasks")
-          .insert({
+        try {
+          const writeResult = await insertTaskWithCompatibility(supabase, {
             deal_id,
-            title: details.title ?? null,
-            description: details.description ?? null,
-            assigned_to: details.assigned_to ?? null,
-            due_date: details.due_date ?? null,
-            status: "open"
+            title: typeof details.title === "string" ? details.title : "Untitled task",
+            description: typeof details.description === "string" ? details.description : null,
+            assigned_to: typeof details.assigned_to === "string" ? details.assigned_to : null,
+            due_date: typeof details.due_date === "string" ? details.due_date : null
           })
 
-        results.push({
-          action: "task_create",
-          success: !error,
-          error: error?.message ?? null
-        })
+          results.push({
+            action: "task_create",
+            success: true,
+            error: null,
+            compatibility_mode: writeResult.mode,
+            warning: writeResult.warning ?? null,
+            data: writeResult.data
+          })
+        } catch (error) {
+          results.push({
+            action: "task_create",
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error"
+          })
+        }
       }
 
       if (rawAction.action === "log_communication") {
@@ -134,20 +146,29 @@ serve(async (req) => {
       }
 
       if (rawAction.action === "risk_log") {
-        const { error } = await supabase
-          .from("risks")
-          .insert({
+        try {
+          const writeResult = await insertRiskWithCompatibility(supabase, {
             deal_id,
-            title: details.title ?? null,
-            description: details.description ?? null,
-            severity: details.severity ?? "medium"
+            title: typeof details.title === "string" ? details.title : null,
+            description: typeof details.description === "string" ? details.description : null,
+            severity: typeof details.severity === "string" ? details.severity : "medium"
           })
 
-        results.push({
-          action: "risk_log",
-          success: !error,
-          error: error?.message ?? null
-        })
+          results.push({
+            action: "risk_log",
+            success: true,
+            error: null,
+            compatibility_mode: writeResult.mode,
+            warning: writeResult.warning ?? null,
+            data: writeResult.data
+          })
+        } catch (error) {
+          results.push({
+            action: "risk_log",
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error"
+          })
+        }
       }
 
       if (rawAction.action === "financial_snapshot_add") {

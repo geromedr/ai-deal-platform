@@ -265,6 +265,30 @@ values
     'opportunity',
     'Execute structured actions returned by ai-agent for active opportunity-stage deals.',
     '{"allowed_actions":["task_create","risk_log","log_communication","deal_stage_update","milestone_create","financial_snapshot_add"]}'::jsonb
+  ),
+  (
+    'rule-engine-agent',
+    'post-ranking',
+    'Evaluate post-ranking orchestration rules and trigger downstream agents in priority order.',
+    '{"rules":[{"name":"generate-report-for-a-tier-sites","event":"post-ranking","condition":"score >= 75","action":"deal-report-agent","priority":1}]}'::jsonb
+  ),
+  (
+    'rule-engine-agent',
+    'post-intelligence',
+    'Run deeper analysis or log risks after planning intelligence completes.',
+    '{"rules":[{"name":"high-density-follow-up","event":"post-intelligence","condition":"zoning_density == \"high-density\"","action":"create-task","priority":1,"payload":{"title":"Run deeper high-density analysis","description":"High-density zoning detected during post-intelligence orchestration. Review planning controls, comparable evidence, and downstream feasibility assumptions.","assigned_to":"acquisitions"}},{"name":"high-flood-risk-log","event":"post-intelligence","condition":"flood_risk != null AND flood_risk == \"High\"","action":"agent-orchestrator","priority":2,"payload":{"summary":"Log flood risk raised by post-intelligence rule.","actions":[{"action":"risk_log","details":{"title":"High flood risk identified","description":"Post-intelligence rule detected a high flood risk classification and escalated the site for review.","severity":"high"}}]}}]}'::jsonb
+  ),
+  (
+    'rule-engine-agent',
+    'post-discovery',
+    'Reserved workflow slot for post-discovery orchestration rules.',
+    '{"rules":[]}'::jsonb
+  ),
+  (
+    'rule-engine-agent',
+    'post-financial',
+    'Trigger reporting for strong margins and log risks for weak margins.',
+    '{"rules":[{"name":"strong-margin-report","event":"post-financial","condition":"financials != null AND financials > 0.2","action":"deal-report-agent","priority":1},{"name":"thin-margin-risk-log","event":"post-financial","condition":"financials != null AND financials < 0.1","action":"agent-orchestrator","priority":2,"payload":{"summary":"Log thin-margin feasibility risk.","actions":[{"action":"risk_log","details":{"title":"Thin development margin","description":"Post-financial rule detected margin below 10 percent and logged a risk for acquisitions review.","severity":"medium"}}]}}]}'::jsonb
   )
 on conflict (agent_name, stage) do update
 set

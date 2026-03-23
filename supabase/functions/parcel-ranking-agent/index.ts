@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts"
+import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
 
 type RankingRequest = {
   deal_id?: string
@@ -600,6 +601,40 @@ serve(async (req) => {
         throw new Error(`Failed to log ranking result: ${await actionResponse.text()}`)
       }
 
+      const eventResult = await triggerEvent({
+        supabaseUrl,
+        serviceKey,
+        authorizationHeader: req.headers.get("Authorization"),
+        sourceAgent: "parcel-ranking-agent",
+        dealId: deal_id,
+        event: "post-ranking",
+        eventContext: {
+          deal_id,
+          event: "post-ranking",
+          score,
+          zoning: input.zoning ?? null,
+          zoning_density:
+            typeof input.zoning === "string" && input.zoning.trim().toUpperCase().startsWith("R4")
+              ? "high-density"
+              : typeof input.zoning === "string" && input.zoning.trim().toUpperCase().startsWith("R3")
+                ? "medium-density"
+                : typeof input.zoning === "string" && input.zoning.trim().toUpperCase().startsWith("R2")
+                  ? "low-density"
+                  : input.zoning
+                    ? "unknown"
+                    : null,
+          flood_risk: input.flood_risk ?? null,
+          yield: input.estimated_units ?? null,
+          financials: input.financial_margin ?? null
+        }
+      })
+
+      const eventWarnings = !eventResult.success
+        ? [`post-ranking trigger failed: ${eventResult.error ?? "unknown error"}`]
+        : Array.isArray(eventResult.warnings) && eventResult.warnings.length > 0
+          ? eventResult.warnings.map((warning) => `post-ranking: ${warning}`)
+          : []
+
       return jsonResponse({
         success: true,
         deal_id,
@@ -620,7 +655,15 @@ serve(async (req) => {
           estimated_units: input.estimated_units ?? null,
           financial_margin: input.financial_margin ?? null,
           comparable_sale_price_per_sqm: input.comparable_sale_price_per_sqm ?? null
-        }
+        },
+        event_dispatch: {
+          event: "post-ranking",
+          triggered: eventResult.success,
+          duplicate: eventResult.duplicate === true,
+          skipped: eventResult.skipped === true,
+          reason: eventResult.reason ?? null
+        },
+        warnings: eventWarnings
       })
     }
 

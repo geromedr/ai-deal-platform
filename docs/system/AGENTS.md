@@ -5,7 +5,10 @@ This document lists all system agents.
 ## Core System
 
 ### agent-orchestrator
-Executes structured actions returned by reasoning agents.
+Executes structured actions returned by reasoning agents, with compatibility-aware writes for legacy hosted task and risk schemas.
+
+### rule-engine-agent
+Evaluates event-scoped orchestration rules fetched from `get-agent-rules`, compares null-safe conditions against standardized event context (`score`, `zoning`, `zoning_density`, `flood_risk`, `yield`, `financials`), executes downstream agents in priority order with duplicate-safe report suppression, and returns structured rule and audit results for `post-discovery`, `post-intelligence`, `post-ranking`, and `post-financial`.
 
 ### ai-agent
 Provides AI reasoning support with knowledge retrieval.
@@ -20,7 +23,7 @@ Aggregates analysis outputs and records risks, milestones, and financial insight
 Generates the final investment-ready report for a development opportunity by aggregating get-deal, get-deal-context, planning refreshes, yield, financial snapshots, comparable sales, and ranking data into structured JSON plus a human-readable summary, with strict deal ID validation, warning-driven partial results, fallback-safe downstream handling, and direct database fallbacks when optional reads or logging fail.
 
 ### create-task
-Creates task records linked to deals.
+Creates task records linked to deals and normalizes legacy hosted task rows into the current response shape.
 
 ### update-deal-stage
 Updates lifecycle stage for an existing deal.
@@ -42,7 +45,7 @@ Logs request payloads and returns a success response for testing.
 ## Planning Intelligence
 
 ### site-intelligence-agent
-Runs the end-to-end site pipeline for a subject site, sequencing planning agents, optional comparable sales, yield, financial modelling, and deal-specific parcel ranking, then triggering deal-report-agent only when the ranking score meets the configured report threshold while returning structured decision metadata, bootstrap/persistence warnings, and skip reasons.
+Runs the end-to-end site pipeline for a subject site, sequencing planning agents, optional comparable sales, yield, financial modelling, and deal-specific parcel ranking, dispatching `post-intelligence` and `post-ranking` events through the shared event dispatcher, converting planning parse and dependency failures into warning-driven fallback values, preserving threshold-based fallback protection for post-ranking report decisions, and exposing orchestration summaries at the top level of the response.
 
 ### zoning-agent
 Retrieves zoning controls.
@@ -71,10 +74,10 @@ Scans mock planning portal data for apartment and multi-dwelling development app
 Collects development application discovery opportunities.
 
 ### site-discovery-agent
-Submits candidate sites into the analysis pipeline and scoring workflow.
+Submits candidate sites into the analysis pipeline and scoring workflow, then dispatches the `post-discovery` event for downstream rule evaluation.
 
 ### parcel-ranking-agent
-Ranks development opportunities using a weighted scoring model across zoning, FSR, height, site size, yield, financial margin, and comparable sales strength, supporting both `deal_id` scoring and existing batch candidate ranking with strict mode-specific request validation and reliable persisted ranking upserts in hosted environments.
+Ranks development opportunities using a weighted scoring model across zoning, FSR, height, site size, yield, financial margin, and comparable sales strength, supporting both `deal_id` scoring and existing batch candidate ranking with strict mode-specific request validation, reliable persisted ranking upserts in hosted environments, and event dispatch for `post-ranking`.
 
 ## Feasibility
 
@@ -88,7 +91,13 @@ Finds nearby comparable developments and estimates sale price per sqm, using sta
 Stores financial assumptions and snapshots.
 
 ### financial-engine-agent
-Performs detailed feasibility calculations using yield outputs, explicit comparable-sales price-per-sqm assumptions, nearby comparable developments, and planning constraints, then stores a structured financial snapshot for downstream reporting with fallback-safe revenue assumptions, warning-driven partial results, and clearer client-facing validation errors.
+Performs detailed feasibility calculations using yield outputs, explicit comparable-sales price-per-sqm assumptions, nearby comparable developments, and planning constraints, then stores a structured financial snapshot for downstream reporting with fallback-safe revenue assumptions, warning-driven partial results, clearer client-facing validation errors, standardized event context, and event dispatch for `post-financial`.
+
+### event-dispatcher
+A shared helper used by stage agents to build standardized event context, derive a deterministic context hash from `score`, `zoning`, `yield`, and `financials`, log stage-completion events, suppress only exact-context duplicate and in-progress processing in `ai_actions`, invoke `rule-engine-agent`, and fall back to legacy `deal_id` and event dedupe only when older un-hashed records are the only history available.
+
+### action-layer-compat
+A shared normalization helper that maps legacy hosted `tasks`, `risks`, and `agent_action_rules` shapes into the current structures expected by the orchestration layer and retries writes with legacy column mappings when required.
 
 ## Knowledge
 
@@ -109,4 +118,4 @@ Retrieves contextual information across deal records.
 ## Rules
 
 ### get-agent-rules
-Returns system rules and allowed actions for a given stage.
+Returns system rules and allowed actions for a given stage, normalizing both current and legacy hosted `agent_action_rules` schemas.

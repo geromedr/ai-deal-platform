@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
 
 type SiteIntelligenceRequest = {
   deal_id?: string
@@ -41,6 +42,24 @@ type WarningEntry = {
   agent: string
   issue: string
   message: string
+  fallback?: string
+}
+
+type RuleEngineResponse = {
+  success?: boolean
+  executed_actions?: Array<{
+    action?: string
+    success?: boolean
+    skipped?: boolean
+    error?: string | null
+    reason?: string
+    data?: unknown
+  }>
+  skipped_rules?: Array<{
+    action?: string
+    reason?: string
+  }>
+  warnings?: string[]
 }
 
 type PipelineRun = {
@@ -248,11 +267,12 @@ async function invokeAgent(
       body: JSON.stringify(payload)
     })
 
+    const responseText = await response.text()
     let data: unknown = null
     try {
-      data = await response.json()
+      data = responseText ? JSON.parse(responseText) : null
     } catch {
-      data = await response.text()
+      data = responseText
     }
 
     if (!response.ok) {
@@ -375,6 +395,102 @@ function hasUsableCachedPlanningValue(value: unknown) {
   return typeof value === "string" && value.trim().length > 0
 }
 
+function isPlanningParseFailure(message: string) {
+  const normalized = message.toLowerCase()
+  return normalized.includes("unexpected token") ||
+    normalized.includes("not valid json") ||
+    normalized.includes("parse")
+}
+
+function getPlanningFieldName(agent: string) {
+  const fieldByAgent: Record<string, string> = {
+    "zoning-agent": "zoning",
+    "flood-agent": "flood_risk",
+    "height-agent": "height_limit",
+    "fsr-agent": "fsr",
+    "heritage-agent": "heritage_status"
+  }
+
+  return fieldByAgent[agent] ?? "value"
+}
+
+function getPlanningFallbackValue(agent: string) {
+  const fallbackByAgent: Record<string, string> = {
+    "zoning-agent": "Unknown",
+    "flood-agent": "Unknown",
+    "height-agent": "Unknown",
+    "fsr-agent": "Unknown",
+    "heritage-agent": "Unknown"
+  }
+
+  return fallbackByAgent[agent] ?? "Unknown"
+}
+
+function buildPlanningFallbackResult(agent: string, value: string, reason: string): StageResult {
+  return {
+    success: true,
+    skipped: true,
+    reason,
+    data: {
+      success: true,
+      [getPlanningFieldName(agent)]: value
+    }
+  }
+}
+
+function getStageDataString(
+  result: StageResult | undefined,
+  field: string
+): string | null {
+  if (!result?.data || typeof result.data !== "object") return null
+  const value = (result.data as Record<string, unknown>)[field]
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null
+}
+
+function classifyZoningDensity(zoning: string | null) {
+  if (!zoning) return null
+  const normalized = zoning.trim().toUpperCase()
+
+  if (normalized.startsWith("R4") || normalized.includes("HIGH DENSITY")) {
+    return "high-density"
+  }
+
+  if (normalized.startsWith("R3") || normalized.includes("MEDIUM DENSITY")) {
+    return "medium-density"
+  }
+
+  if (normalized.startsWith("R2") || normalized.includes("LOW DENSITY")) {
+    return "low-density"
+  }
+
+  return "unknown"
+}
+
+function toEventSummary(result: StageResult | undefined, fallbackEvent: string) {
+  if (!result) {
+    return {
+      event: fallbackEvent,
+      success: false,
+      skipped: false,
+      reason: "Event result unavailable"
+    }
+  }
+
+  const data = typeof result.data === "object" && result.data !== null
+    ? result.data as Record<string, unknown>
+    : null
+
+  return {
+    event:
+      data && typeof data.event === "string" && data.event.trim().length > 0
+        ? data.event
+        : fallbackEvent,
+    success: result.success,
+    skipped: result.skipped ?? false,
+    reason: result.reason ?? result.error ?? null
+  }
+}
+
 async function logPipeline(
   supabase: ReturnType<typeof createClient>,
   deal_id: string,
@@ -487,7 +603,9 @@ serve(async (req) => {
 
     const addWarning = (warning: WarningEntry) => {
       console.warn("site-intelligence-agent warning", { deal_id, ...warning })
-      run.warnings.push(`${warning.agent}: ${warning.message}`)
+      run.warnings.push(
+        `${warning.agent}: ${warning.message}${warning.fallback ? ` (fallback: ${warning.fallback})` : ""}`
+      )
     }
 
     let bootstrapReady = true
@@ -626,16 +744,39 @@ serve(async (req) => {
 
         if (hasUsableCachedPlanningValue(cachedValueByAgent[agent])) {
           normalizedResult = {
-            success: true,
-            skipped: true,
-            reason: "Using cached planning data after refresh attempt failed",
-            data: result.data
+            ...buildPlanningFallbackResult(
+              agent,
+              String(cachedValueByAgent[agent]),
+              "Using cached planning data after refresh attempt failed"
+            ),
+            data: {
+              ...(typeof result.data === "object" && result.data !== null
+                ? result.data as Record<string, unknown>
+                : {}),
+              success: true,
+              [getPlanningFieldName(agent)]: String(cachedValueByAgent[agent])
+            }
           }
 
           addWarning({
             agent,
             issue: "Refresh failed; cached planning data reused",
-            message: result.error || "unknown error"
+            message: result.error || "unknown error",
+            fallback: String(cachedValueByAgent[agent])
+          })
+        } else {
+          const fallbackValue = getPlanningFallbackValue(agent)
+          normalizedResult = buildPlanningFallbackResult(
+            agent,
+            fallbackValue,
+            "Using fallback planning data after refresh attempt failed"
+          )
+
+          addWarning({
+            agent,
+            issue: isPlanningParseFailure(result.error || "") ? "parse failure" : "dependency failure",
+            message: result.error || "unknown error",
+            fallback: fallbackValue
           })
         }
       }
@@ -648,6 +789,63 @@ serve(async (req) => {
         }
       } else {
         run.failed_stages.push(agent)
+      }
+    }
+
+    const postIntelligenceEvent = await triggerEvent({
+      supabaseUrl,
+      serviceKey,
+      authorizationHeader: requestAuthorizationHeader,
+      sourceAgent: "site-intelligence-agent",
+      dealId: deal_id,
+      event: "post-intelligence",
+      actionContext: {
+        use_comparable_sales: useComparableSales
+      },
+      eventContext: {
+        deal_id,
+        event: "post-intelligence",
+        score: null,
+        zoning: getStageDataString(run.results["zoning-agent"], "zoning"),
+        zoning_density: classifyZoningDensity(
+          getStageDataString(run.results["zoning-agent"], "zoning")
+        ),
+        flood_risk: getStageDataString(run.results["flood-agent"], "flood_risk"),
+        yield: null,
+        financials: null
+      }
+    })
+
+    run.results["post-intelligence-event"] = postIntelligenceEvent.success
+      ? {
+          success: true,
+          skipped: postIntelligenceEvent.skipped ?? false,
+          reason: postIntelligenceEvent.reason ?? "post-intelligence event dispatched",
+          data: postIntelligenceEvent.data
+        }
+      : {
+          success: false,
+          error: postIntelligenceEvent.error ?? "Failed to trigger post-intelligence event"
+        }
+
+    if (!postIntelligenceEvent.success) {
+      addWarning({
+        agent: "event-dispatcher",
+        issue: "Post-intelligence trigger failed",
+        message: postIntelligenceEvent.error ?? "unknown error"
+      })
+    } else {
+      run.completed_stages.push("post-intelligence-event")
+      if (postIntelligenceEvent.skipped) {
+        run.skipped_stages.push("post-intelligence-event")
+      }
+
+      for (const warning of postIntelligenceEvent.warnings ?? []) {
+        addWarning({
+          agent: "rule-engine-agent",
+          issue: "Post-intelligence rule warning",
+          message: warning
+        })
       }
     }
 
@@ -792,37 +990,193 @@ serve(async (req) => {
         ? rankingResult.data as RankingAgentResponse
         : null
     const rankingScore = typeof rankingData?.score === "number" ? rankingData.score : null
-    const reportShouldRun =
-      rankingResult.success && rankingScore !== null && rankingScore >= reportTriggerThreshold
-    const reportTriggerReason = !rankingResult.success
+    let reportShouldRun = false
+    let reportTriggerReason = !rankingResult.success
       ? "Skipped because parcel-ranking-agent did not complete successfully"
       : rankingScore === null
         ? "Skipped because parcel-ranking-agent did not return a score"
-        : rankingScore >= reportTriggerThreshold
-          ? `Triggered because parcel score ${rankingScore} met threshold ${reportTriggerThreshold}`
-          : `Skipped because parcel score ${rankingScore} was below threshold ${reportTriggerThreshold}`
+        : `Skipped because no post-ranking rule matched parcel score ${rankingScore}`
 
-    const reportResult = reportShouldRun
-      ? await invokeAgent(
-          supabaseUrl,
-          serviceKey,
-          requestAuthorizationHeader,
-          "deal-report-agent",
-          {
-            deal_id,
-            use_comparable_sales: useComparableSales
-          }
-        )
-      : {
-          success: true,
-          skipped: true,
-          reason: reportTriggerReason,
-          data: {
-            report_triggered: false,
-            ranking_score: rankingScore,
-            threshold: reportTriggerThreshold
-          }
+    let reportResult: StageResult = {
+      success: true,
+      skipped: true,
+      reason: reportTriggerReason,
+      data: {
+        report_triggered: false,
+        ranking_score: rankingScore,
+        threshold: reportTriggerThreshold
+      }
+    }
+
+    if (rankingResult.success && rankingScore !== null) {
+      const rankingEventResult = await triggerEvent({
+        supabaseUrl,
+        serviceKey,
+        authorizationHeader: requestAuthorizationHeader,
+        sourceAgent: "site-intelligence-agent",
+        dealId: deal_id,
+        event: "post-ranking",
+        actionContext: {
+          use_comparable_sales: useComparableSales
+        },
+        eventContext: {
+          deal_id,
+          event: "post-ranking",
+          score: rankingScore,
+          zoning: getStageDataString(run.results["zoning-agent"], "zoning"),
+          zoning_density: classifyZoningDensity(
+            getStageDataString(run.results["zoning-agent"], "zoning")
+          ),
+          flood_risk: getStageDataString(run.results["flood-agent"], "flood_risk"),
+          yield:
+            typeof run.results["yield-agent"]?.data === "object" &&
+            run.results["yield-agent"]?.data !== null &&
+            typeof (run.results["yield-agent"]?.data as Record<string, unknown>).estimated_units === "number"
+              ? (run.results["yield-agent"]?.data as Record<string, unknown>).estimated_units as number
+              : null,
+          financials:
+            typeof run.results["financial-engine-agent"]?.data === "object" &&
+            run.results["financial-engine-agent"]?.data !== null &&
+            typeof (run.results["financial-engine-agent"]?.data as Record<string, unknown>).margin === "number"
+              ? (run.results["financial-engine-agent"]?.data as Record<string, unknown>).margin as number
+              : null
         }
+      })
+
+      run.results["rule-engine-agent"] = rankingEventResult.success
+        ? {
+            success: true,
+            skipped: rankingEventResult.skipped ?? false,
+            reason: rankingEventResult.reason ?? "post-ranking event dispatched",
+            data: rankingEventResult.data
+          }
+        : {
+            success: false,
+            error: rankingEventResult.error ?? "Failed to trigger post-ranking event"
+          }
+
+      if (rankingEventResult.success) {
+        run.completed_stages.push("rule-engine-agent")
+        if (rankingEventResult.skipped) {
+          run.skipped_stages.push("rule-engine-agent")
+        }
+      } else {
+        run.failed_stages.push("rule-engine-agent")
+      }
+
+      const ruleEngineData =
+        rankingEventResult.success && rankingEventResult.data && typeof rankingEventResult.data === "object"
+          ? rankingEventResult.data as RuleEngineResponse
+          : null
+
+      if (rankingEventResult.success && ruleEngineData) {
+        for (const warning of ruleEngineData.warnings ?? []) {
+          addWarning({
+            agent: "rule-engine-agent",
+            issue: "Rule engine warning",
+            message: warning
+          })
+        }
+
+        const reportAction = (ruleEngineData.executed_actions ?? []).find(
+          (action) => action.action === "deal-report-agent"
+        )
+
+        if (reportAction) {
+          reportShouldRun = reportAction.success === true && reportAction.skipped !== true
+          reportTriggerReason = reportShouldRun
+            ? reportAction.reason || `Triggered by post-ranking rule for parcel score ${rankingScore}`
+            : reportAction.error
+              ? `Rule matched but deal-report-agent failed: ${reportAction.error}`
+              : reportAction.reason || "Rule matched but deal-report-agent did not complete successfully"
+
+          reportResult = reportAction.success
+            ? {
+                success: true,
+                skipped: reportAction.skipped ?? false,
+                reason: reportTriggerReason,
+                data: reportAction.data
+              }
+            : {
+                success: false,
+                error: reportAction.error || "deal-report-agent failed via rule-engine-agent",
+                data: reportAction.data
+              }
+        } else {
+          const skippedReportRule = (ruleEngineData.skipped_rules ?? []).find(
+            (rule) => rule.action === "deal-report-agent"
+          )
+
+          addWarning({
+            agent: "rule-engine-agent",
+            issue: "No matching report rule",
+            message: "Using legacy threshold fallback because no post-ranking rule triggered deal-report-agent"
+          })
+
+          reportShouldRun = rankingScore >= reportTriggerThreshold
+          reportTriggerReason = reportShouldRun
+            ? `Fallback triggered because no post-ranking rule matched and parcel score ${rankingScore} met threshold ${reportTriggerThreshold}`
+            : skippedReportRule?.reason
+              ? `Fallback skipped because no post-ranking rule matched and parcel score ${rankingScore} was below threshold ${reportTriggerThreshold}; last rule result: ${skippedReportRule.reason}`
+              : `Fallback skipped because no post-ranking rule matched and parcel score ${rankingScore} was below threshold ${reportTriggerThreshold}`
+          reportResult = reportShouldRun
+            ? await invokeAgent(
+                supabaseUrl,
+                serviceKey,
+                requestAuthorizationHeader,
+                "deal-report-agent",
+                {
+                  deal_id,
+                  use_comparable_sales: useComparableSales
+                }
+              )
+            : {
+                success: true,
+                skipped: true,
+                reason: reportTriggerReason,
+                data: {
+                  report_triggered: false,
+                  ranking_score: rankingScore,
+                  threshold: reportTriggerThreshold
+                }
+              }
+        }
+      }
+
+      if (!rankingEventResult.success) {
+        addWarning({
+          agent: "rule-engine-agent",
+          issue: "Rule evaluation failed",
+          message: rankingEventResult.error || "unknown error"
+        })
+
+        reportShouldRun = rankingScore >= reportTriggerThreshold
+        reportTriggerReason = reportShouldRun
+          ? `Fallback triggered because parcel score ${rankingScore} met threshold ${reportTriggerThreshold}`
+          : `Fallback skipped because parcel score ${rankingScore} was below threshold ${reportTriggerThreshold}`
+        reportResult = reportShouldRun
+          ? await invokeAgent(
+              supabaseUrl,
+              serviceKey,
+              requestAuthorizationHeader,
+              "deal-report-agent",
+              {
+                deal_id,
+                use_comparable_sales: useComparableSales
+              }
+            )
+          : {
+              success: true,
+              skipped: true,
+              reason: reportTriggerReason,
+              data: {
+                report_triggered: false,
+                ranking_score: rankingScore,
+                threshold: reportTriggerThreshold
+              }
+            }
+      }
+    }
 
     run.results["deal-report-agent"] = reportResult
     if (reportResult.success) {
@@ -869,6 +1223,15 @@ serve(async (req) => {
       critical_failed_stages: criticalFailedStages,
       skipped_stages: run.skipped_stages,
       warnings: run.warnings,
+      orchestration: {
+        post_intelligence: toEventSummary(run.results["post-intelligence-event"], "post-intelligence"),
+        post_ranking: toEventSummary(run.results["rule-engine-agent"], "post-ranking"),
+        report: {
+          triggered: reportShouldRun,
+          reason: reportTriggerReason,
+          fallback_threshold: reportTriggerThreshold
+        }
+      },
       final_report:
         run.results["deal-report-agent"]?.success && !run.results["deal-report-agent"]?.skipped
           ? run.results["deal-report-agent"].data

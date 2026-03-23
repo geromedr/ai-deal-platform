@@ -1,0 +1,7 @@
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "event": "post-ranking",
+  "action_context": {
+    "use_comparable_sales": true
+  }
+}

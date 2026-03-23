@@ -1,24 +1,26 @@
 # System Architecture
 
-The AI Deal Platform is built around a **modular agent architecture** using Supabase Edge Functions.
-
-Each agent performs a single specialized task.
+The AI Deal Platform uses a modular Supabase Edge Function architecture with stage-specific agents and an event-driven orchestration layer.
 
 ## Core Pipeline
 
-Data Sources  
-↓  
-Discovery Agents  
-↓  
-Site Intelligence Orchestrator  
-↓  
-Planning Analysis Agents  
-↓  
-Feasibility Agents  
-↓  
-Ranking Engine  
-↓  
-Ranked Opportunities
+Data Sources
+↓
+Discovery Agents
+↓
+Site Intelligence Orchestrator
+↓
+Planning Analysis Agents
+↓
+Feasibility Agents
+↓
+Ranking Engine
+↓
+Event Dispatcher
+↓
+Rule Engine
+↓
+Triggered Actions
 
 ## Major Layers
 
@@ -58,17 +60,21 @@ Evaluates opportunities based on:
 - site size
 - feasibility
 
-### Decision Layer
-Uses orchestration rules to decide whether a site advances to final reporting.
+### Event-Driven Decision Layer
+Uses stage-completion events to drive downstream orchestration rules.
 
-- site-intelligence-agent executes planning, feasibility, and ranking in sequence
-- parcel-ranking-agent score thresholds determine whether deal-report-agent is triggered
+- `site-discovery-agent` dispatches `post-discovery`
+- `site-intelligence-agent` dispatches `post-intelligence`
+- `parcel-ranking-agent` dispatches `post-ranking`
+- `financial-engine-agent` dispatches `post-financial`
+- the shared event dispatcher invokes `rule-engine-agent`, logs `event_triggered` and `rule_engine_invoked` records to `ai_actions`, and suppresses duplicate processing for the same `deal_id` and event
+- `rule-engine-agent` fetches event-scoped rules from `get-agent-rules`, evaluates them against persisted planning, yield, ranking, and financial context, and executes matching actions in priority order
+- `site-intelligence-agent` preserves the legacy score-threshold fallback if post-ranking rule execution fails or no report rule matches
 - hosted environments may require additive schema-alignment migrations before autonomous orchestration can persist deal, feasibility, comparable-sales, and ranking outputs consistently
-- low-scoring opportunities can stop at structured ranking output without generating a full report
 
 ## Architecture Principles
 
 - Modular
 - Extensible
-- Data‑driven
-- AI‑assisted
+- Data-driven
+- AI-assisted

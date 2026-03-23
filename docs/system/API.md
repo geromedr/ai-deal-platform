@@ -19,8 +19,9 @@ POST `/functions/v1/site-intelligence-agent`
 Validation notes:
 - `deal_id` must be a non-empty UUID
 - `address` is required
-- final report generation is gated by `REPORT_TRIGGER_SCORE_THRESHOLD` in the function environment
-- bootstrap, cached-data fallback, and pipeline logging issues are returned in `warnings` / `results` instead of crashing the request when partial execution can continue
+- post-ranking downstream execution is delegated to `rule-engine-agent`; final report generation still falls back to `REPORT_TRIGGER_SCORE_THRESHOLD` in the function environment if rule evaluation fails
+- bootstrap, planning fallback, cached-data fallback, and pipeline logging issues are returned in `warnings` / `results` instead of crashing the request when partial execution can continue
+- top-level responses include an `orchestration` summary for post-intelligence, post-ranking, and report decisions
 
 Request:
 
@@ -44,7 +45,26 @@ Response:
   "ranking_score": 40,
   "report_trigger_threshold": 50,
   "report_triggered": false,
-  "report_trigger_reason": "Skipped because parcel score 40 was below threshold 50",
+  "report_trigger_reason": "Skipped because no post-ranking rule matched parcel score 40",
+  "orchestration": {
+    "post_intelligence": {
+      "event": "post-intelligence",
+      "success": true,
+      "skipped": false,
+      "reason": "post-intelligence event dispatched"
+    },
+    "post_ranking": {
+      "event": "post-ranking",
+      "success": true,
+      "skipped": false,
+      "reason": "post-ranking event dispatched"
+    },
+    "report": {
+      "triggered": false,
+      "reason": "Skipped because no post-ranking rule matched parcel score 40",
+      "fallback_threshold": 50
+    }
+  },
   "completed_stages": [
     "zoning-agent",
     "flood-agent",
@@ -55,6 +75,7 @@ Response:
     "yield-agent",
     "financial-engine-agent",
     "parcel-ranking-agent",
+    "rule-engine-agent",
     "deal-report-agent"
   ],
   "failed_stages": [],
@@ -69,6 +90,66 @@ Response:
   "final_report": null
 }
 ```
+
+## Example: rule-engine-agent
+
+POST `/functions/v1/rule-engine-agent`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "event": "post-ranking"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "event": "post-ranking",
+  "context": {
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "event": "post-ranking",
+    "score": 82,
+    "zoning": "R4",
+    "zoning_density": "high-density",
+    "flood_risk": "Low",
+    "yield": 24,
+    "financials": 0.19
+  },
+  "executed_actions": [
+    {
+      "source_rule_id": "uuid",
+      "event": "post-ranking",
+      "condition": "score != null AND score >= 75",
+      "action": "deal-report-agent",
+      "priority": 1,
+      "success": true,
+      "skipped": false,
+      "reason": "score != null => true AND 82 >= 75 => true",
+      "error": null
+    }
+  ],
+  "skipped_rules": [],
+  "warnings": []
+}
+```
+
+Rule evaluation notes:
+- supported operators: `>`, `<`, `>=`, `<=`, `==`, `!=`
+- supported conjunction: `AND`
+- null-safe rules such as `financials != null AND financials > 0.2` are valid
+- empty rule sets return `No rules configured for event; default fallback rule set loaded`
+
+Dispatcher deduplication notes:
+- event dispatch dedupe now uses `deal_id + event + context_hash`
+- `context_hash` is derived deterministically from `score`, `zoning`, `yield`, and `financials`
+- identical context is skipped, changed context is allowed to re-run
+- older `ai_actions` records without `context_hash` still use legacy `deal_id + event` fallback until hashed history exists for that event
 
 ## Example: email-agent
 
@@ -121,8 +202,13 @@ Response:
     "id": "uuid",
     "deal_id": "11111111-1111-1111-1111-111111111111",
     "title": "Review zoning controls",
+    "assigned_to": "acquisitions",
     "status": "open"
-  }
+  },
+  "compatibility_mode": "legacy",
+  "warnings": [
+    "tasks table used legacy owner column"
+  ]
 }
 ```
 
@@ -162,11 +248,17 @@ Response:
     {
       "action": "task_create",
       "success": true,
-      "error": null
+      "error": null,
+      "compatibility_mode": "legacy",
+      "warning": "tasks table used legacy owner column"
     }
   ]
 }
 ```
+
+Compatibility notes:
+- action-layer writes normalize legacy hosted `tasks` and `risks` schemas before returning results
+- `get-agent-rules` normalizes both current `action_schema` rows and legacy `allowed_action` / `conditions` rows into the same rule payload consumed by `rule-engine-agent`
 
 ## Example: test-agent
 
@@ -392,7 +484,14 @@ Response:
   "reasoning": "Medium-density zoning R3; Constrained FSR potential 0:1; Low height capacity 0m",
   "reason": "Medium-density zoning R3; Constrained FSR potential 0:1; Low height capacity 0m",
   "ranking_score": 54,
-  "ranking_tier": "B"
+  "ranking_tier": "B",
+  "event_dispatch": {
+    "event": "post-ranking",
+    "triggered": true,
+    "duplicate": false,
+    "skipped": false,
+    "reason": null
+  }
 }
 ```
 
@@ -527,6 +626,7 @@ Response:
 ## Core Endpoints
 
 - `/agent-orchestrator`
+- `/rule-engine-agent`
 - `/ai-agent`
 - `/create-task`
 - `/deal-agent`

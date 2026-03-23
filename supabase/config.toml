@@ -521,6 +521,12 @@ entrypoint = "./functions/agent-orchestrator/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/agent-orchestrator/*.html" ]
 
+[functions.rule-engine-agent]
+enabled = true
+verify_jwt = true
+import_map = "./functions/rule-engine-agent/deno.json"
+entrypoint = "./functions/rule-engine-agent/index.ts"
+
 [functions.deal-intelligence]
 enabled = true
 verify_jwt = true

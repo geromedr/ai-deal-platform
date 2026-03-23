@@ -16,7 +16,9 @@ Planning Intelligence
 - height-agent
 - fsr-agent
 - heritage-agent
-- site-intelligence-agent now orchestrates the full automated pipeline from planning analysis through deal-specific ranking, with duplicate-run protection, safer internal auth handling, optional comparable-sales refresh, score-threshold gating before final report generation, and warning-driven bootstrap/persistence fallbacks
+- rule-engine-agent
+- shared event dispatcher for `post-discovery`, `post-intelligence`, `post-ranking`, and `post-financial`
+- site-intelligence-agent now orchestrates the full automated pipeline from planning analysis through deal-specific ranking, with duplicate-run protection, safer internal auth handling, optional comparable-sales refresh, event-driven rule orchestration, planning fallback normalization, and warning-driven bootstrap and persistence fallbacks
 
 Feasibility
 - yield-agent
@@ -46,9 +48,14 @@ Testing
 - automated site discovery
 - improved feasibility modelling
 - request validation and pipeline fallback handling hardened across recently upgraded feasibility and orchestration agents
+- rule-engine-agent now supports event-scoped orchestration rules with null-safe condition parsing for `score`, `zoning`, `zoning_density`, `flood_risk`, `yield`, and `financials`, priority-ordered action execution, duplicate-safe report suppression, and a default fallback rule path when persisted rules are unavailable
+- event-driven orchestration now dispatches standardized event context from discovery, intelligence, ranking, and financial completion points, with duplicate suppression, in-progress recursion protection, and cached invocation reuse through `ai_actions`
+- action-layer compatibility normalization now maps legacy hosted `tasks`, `risks`, and `agent_action_rules` schemas into the current orchestration contracts, allowing hosted rule execution to continue without destructive schema changes
+- event dispatcher deduplication is now context-aware, using a deterministic hash of `score`, `zoning`, `yield`, and `financials` so changed deal state re-runs orchestration while identical context is still suppressed, with legacy fallback retained for older un-hashed audit rows
 - QA hardening completed for deal-report-agent, parcel-ranking-agent, and financial-engine-agent so malformed or empty deal identifiers now return consistent client errors instead of leaking downstream database failures
 - internal service-to-service auth handling hardened for deal-report-agent and financial-engine-agent so downstream function failures return structured dependency errors instead of raw 500 responses
-- site-intelligence-agent now avoids redundant batch ranking, validates UUID deal IDs, and only triggers deal-report-agent when the parcel score meets the configured report threshold
+- site-intelligence-agent now avoids redundant batch ranking, validates UUID deal IDs, dispatches post-intelligence and post-ranking events, converts planning parse failures into structured fallback values, exposes orchestration summaries at the top level, and still falls back to the legacy threshold trigger when post-ranking rule evaluation fails
+- seeded orchestration rules now cover high-density post-intelligence follow-up, high-flood-risk logging, strong post-financial margin reporting, and thin-margin risk escalation
 - hosted production flow now runs cleanly in no-comparables mode after schema drift repair, with persisted deal, ranking, and report outputs aligned around the same score
 
 ## Planned

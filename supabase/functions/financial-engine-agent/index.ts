@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
 
 type FinancialEngineRequest = {
   deal_id?: string
@@ -785,6 +786,49 @@ serve(async (req) => {
       margin: feasibility.margin
     })
 
+    const eventResult = await triggerEvent({
+      supabaseUrl,
+      serviceKey,
+      authorizationHeader: req.headers.get("Authorization"),
+      sourceAgent: "financial-engine-agent",
+      dealId: deal_id,
+      event: "post-financial",
+      actionContext: {
+        use_comparable_sales: payload.use_comparable_sales === true
+      },
+      eventContext: {
+        deal_id,
+        event: "post-financial",
+        score: null,
+        zoning: site.zoning || null,
+        zoning_density:
+          typeof site.zoning === "string" && site.zoning.trim().toUpperCase().startsWith("R4")
+            ? "high-density"
+            : typeof site.zoning === "string" && site.zoning.trim().toUpperCase().startsWith("R3")
+              ? "medium-density"
+              : typeof site.zoning === "string" && site.zoning.trim().toUpperCase().startsWith("R2")
+                ? "low-density"
+                : site.zoning
+                  ? "unknown"
+                  : null,
+        flood_risk: site.flood_risk || null,
+        yield: resolvedEstimatedUnits,
+        financials: feasibility.margin
+      }
+    })
+
+    if (!eventResult.success) {
+      addWarning(
+        "event-dispatcher",
+        "Failed to trigger post-financial event",
+        eventResult.error ?? "unknown error"
+      )
+    } else {
+      for (const warning of eventResult.warnings ?? []) {
+        addWarning("event-dispatcher", "Post-financial rule warning", warning)
+      }
+    }
+
     return jsonResponse({
       success: true,
       deal_id,
@@ -819,6 +863,13 @@ serve(async (req) => {
         profit: feasibility.profit,
         margin: feasibility.margin,
         residual_land_value: feasibility.residual_land_value
+      },
+      event_dispatch: {
+        event: "post-financial",
+        triggered: eventResult.success,
+        duplicate: eventResult.duplicate === true,
+        skipped: eventResult.skipped === true,
+        reason: eventResult.reason ?? null
       }
     })
   } catch (error) {

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts"
+import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
 
 type Candidate = {
   source: string
@@ -235,7 +236,43 @@ serve(async (req) => {
           throw new Error(`Failed to save site candidate: ${await saveResponse.text()}`)
         }
 
+        const eventResult = await triggerEvent({
+          supabaseUrl,
+          serviceKey,
+          sourceAgent: "site-discovery-agent",
+          dealId,
+          event: "post-discovery",
+          eventContext: {
+            deal_id: dealId,
+            event: "post-discovery",
+            score: null,
+            zoning: typeof zoning === "string" ? zoning : null,
+            zoning_density:
+              typeof zoning === "string" && zoning.trim().toUpperCase().startsWith("R4")
+                ? "high-density"
+                : typeof zoning === "string" && zoning.trim().toUpperCase().startsWith("R3")
+                  ? "medium-density"
+                  : typeof zoning === "string" && zoning.trim().toUpperCase().startsWith("R2")
+                    ? "low-density"
+                    : typeof zoning === "string"
+                      ? "unknown"
+                      : null,
+            flood_risk: typeof floodRisk === "string" ? floodRisk : null,
+            yield: typeof units === "number" ? units : null,
+            financials: null
+          }
+        })
+
+        if (!eventResult.success) {
+          warnings.push(`post-discovery trigger failed: ${eventResult.error ?? "unknown error"}`)
+        } else {
+          for (const warning of eventResult.warnings ?? []) {
+            warnings.push(`post-discovery: ${warning}`)
+          }
+        }
+
         results.push({
+          deal_id: dealId,
           address,
           zoning,
           fsr,
@@ -245,7 +282,14 @@ serve(async (req) => {
           estimated_profit: estimatedProfit,
           warnings,
           discovery_score: score,
-          discovery_reasons: reasons
+          discovery_reasons: reasons,
+          event_dispatch: {
+            event: "post-discovery",
+            triggered: eventResult.success,
+            duplicate: eventResult.duplicate === true,
+            skipped: eventResult.skipped === true,
+            reason: eventResult.reason ?? null
+          }
         })
 
       } catch (err) {
