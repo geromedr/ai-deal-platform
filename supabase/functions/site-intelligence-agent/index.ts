@@ -70,6 +70,12 @@ type PipelineRun = {
   warnings: string[]
 }
 
+type RawDataPersistenceResult = {
+  persisted: boolean
+  fallback: boolean
+  reason?: string
+}
+
 const PIPELINE_ACTION = "site_pipeline_completed"
 const PIPELINE_COOLDOWN_MS = 5 * 60 * 1000
 const DEFAULT_REPORT_TRIGGER_SCORE_THRESHOLD = 50
@@ -372,6 +378,51 @@ async function upsertSiteCandidate(
     )
 
   if (error) throw new Error(`Failed to upsert site candidate: ${getErrorMessage(error)}`)
+}
+
+function isMissingSiteRawDataColumnError(message: string) {
+  const normalized = message.toLowerCase()
+  return normalized.includes("raw_data") &&
+    (normalized.includes("column") ||
+      normalized.includes("schema cache") ||
+      normalized.includes("could not find"))
+}
+
+async function persistSiteRawData(
+  supabaseUrl: string,
+  serviceKey: string,
+  deal_id: string,
+  rawData: Record<string, unknown>
+): Promise<RawDataPersistenceResult> {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/site_intelligence?deal_id=eq.${deal_id}`,
+    {
+      method: "PATCH",
+      headers: buildRestHeaders(serviceKey),
+      body: JSON.stringify({
+        raw_data: rawData,
+        updated_at: new Date().toISOString()
+      })
+    }
+  )
+
+  if (response.ok) {
+    return {
+      persisted: true,
+      fallback: false
+    }
+  }
+
+  const errorText = await response.text()
+  if (isMissingSiteRawDataColumnError(errorText)) {
+    return {
+      persisted: false,
+      fallback: true,
+      reason: errorText
+    }
+  }
+
+  throw new Error(`Failed to persist site raw_data: ${errorText}`)
 }
 
 async function hasComparableEstimate(
@@ -1189,6 +1240,82 @@ serve(async (req) => {
     }
 
     const criticalFailedStages = run.failed_stages.filter((stage) => CRITICAL_STAGES.has(stage))
+
+    try {
+      const rawDataPayload = {
+        source_agent: "site-intelligence-agent",
+        request: {
+          deal_id,
+          address,
+          force_refresh: forceRefresh,
+          use_comparable_sales: useComparableSales
+        },
+        pipeline_completed: criticalFailedStages.length === 0,
+        ranking_score: rankingScore,
+        report_trigger_threshold: reportTriggerThreshold,
+        report_triggered: reportShouldRun,
+        report_trigger_reason: reportTriggerReason,
+        completed_stages: run.completed_stages,
+        failed_stages: run.failed_stages,
+        skipped_stages: run.skipped_stages,
+        warnings: run.warnings,
+        orchestration: {
+          post_intelligence: toEventSummary(run.results["post-intelligence-event"], "post-intelligence"),
+          post_ranking: toEventSummary(run.results["rule-engine-agent"], "post-ranking"),
+          report: {
+            triggered: reportShouldRun,
+            reason: reportTriggerReason,
+            fallback_threshold: reportTriggerThreshold
+          }
+        },
+        stage_results: run.results
+      }
+
+      const rawDataPersistence = await persistSiteRawData(
+        supabaseUrl,
+        serviceKey,
+        deal_id,
+        rawDataPayload
+      )
+
+      run.results["site-raw-data-persistence"] = rawDataPersistence.persisted
+        ? {
+            success: true,
+            data: {
+              persisted: true
+            }
+          }
+        : {
+            success: true,
+            skipped: true,
+            reason: "Hosted site_intelligence schema is still using the legacy shape; raw_data write skipped safely",
+            data: {
+              persisted: false,
+              fallback: "legacy-schema-compatible"
+            }
+          }
+
+      run.completed_stages.push("site-raw-data-persistence")
+      if (rawDataPersistence.fallback) {
+        run.skipped_stages.push("site-raw-data-persistence")
+        addWarning({
+          agent: "site-intelligence-agent",
+          issue: "Hosted site_intelligence raw_data persistence skipped",
+          message: rawDataPersistence.reason || "raw_data column is unavailable in hosted schema",
+          fallback: "legacy site_intelligence row remains valid without raw_data"
+        })
+      }
+    } catch (error) {
+      addWarning({
+        agent: "site-intelligence-agent",
+        issue: "Failed to persist site_intelligence raw_data",
+        message: getErrorMessage(error)
+      })
+      run.results["site-raw-data-persistence"] = {
+        success: false,
+        error: getErrorMessage(error)
+      }
+    }
 
     try {
       await logPipeline(supabase, deal_id, run, {

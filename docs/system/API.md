@@ -19,6 +19,7 @@ POST `/functions/v1/site-intelligence-agent`
 Validation notes:
 - `deal_id` must be a non-empty UUID
 - `address` is required
+- `site_intelligence.raw_data` is written with the aggregated orchestration payload when the hosted schema is aligned; legacy hosted rows still complete successfully with a warning-only fallback if that column is unavailable
 - post-ranking downstream execution is delegated to `rule-engine-agent`; final report generation still falls back to `REPORT_TRIGGER_SCORE_THRESHOLD` in the function environment if rule evaluation fails
 - bootstrap, planning fallback, cached-data fallback, and pipeline logging issues are returned in `warnings` / `results` instead of crashing the request when partial execution can continue
 - top-level responses include an `orchestration` summary for post-intelligence, post-ranking, and report decisions
@@ -90,6 +91,12 @@ Response:
   "final_report": null
 }
 ```
+
+`site_intelligence` schema notes:
+- current hosted alignment target includes `raw_data jsonb` and `updated_at timestamptz`
+- `raw_data` stores the aggregated site-intelligence orchestration payload when available
+- legacy hosted rows without `raw_data` remain readable and do not block orchestration
+- `knowledge_context` is not part of `site_intelligence`; it is used by comparable-sales persistence
 
 ## Example: rule-engine-agent
 

@@ -269,3 +269,35 @@ It is beginning to behave like an orchestration system:
 - deployment-tested
 
 That is a foundational step toward a genuinely autonomous deal engine.
+
+---
+
+# Session Addendum - Hosted `site_intelligence.raw_data` Alignment
+
+This session extended the orchestration hardening work by addressing a remaining hosted-schema gap in `site_intelligence`.
+
+## What Changed
+
+- added an additive migration to restore `site_intelligence.raw_data` and `site_intelligence.updated_at` in hosted environments
+- updated `site-intelligence-agent` to persist the aggregated orchestration payload into `site_intelligence.raw_data`
+- kept the write path backward-compatible so legacy hosted rows still complete successfully when the `raw_data` column is missing
+- surfaced raw-data persistence outcomes inside pipeline results instead of turning schema drift into a fatal failure
+- aligned system documentation so the schema registry, agent docs, API docs, and project state all describe the current hosted-safe behaviour
+
+## Why It Mattered
+
+Previous work exposed orchestration summaries at the top level of the response, but the hosted database layer could still lag behind the runtime payload shape.
+
+That meant the system could successfully compute richer site intelligence while still lacking a reliable persisted copy of the full orchestration payload.
+
+This session closed that gap without breaking older hosted rows.
+
+## Result
+
+The platform now has a cleaner persistence path for end-to-end site intelligence state:
+
+- aligned hosted schema can store the full aggregated payload in `raw_data`
+- unaligned hosted schema falls back to warning-only behaviour
+- orchestration continues without regression while migration rollout catches up
+
+This is a small change at the schema layer, but an important one for making orchestration outputs durable, inspectable, and consistent across local and hosted environments.

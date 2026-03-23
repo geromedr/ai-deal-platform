@@ -45,7 +45,7 @@ Logs request payloads and returns a success response for testing.
 ## Planning Intelligence
 
 ### site-intelligence-agent
-Runs the end-to-end site pipeline for a subject site, sequencing planning agents, optional comparable sales, yield, financial modelling, and deal-specific parcel ranking, dispatching `post-intelligence` and `post-ranking` events through the shared event dispatcher, converting planning parse and dependency failures into warning-driven fallback values, preserving threshold-based fallback protection for post-ranking report decisions, and exposing orchestration summaries at the top level of the response.
+Runs the end-to-end site pipeline for a subject site, sequencing planning agents, optional comparable sales, yield, financial modelling, and deal-specific parcel ranking, dispatching `post-intelligence` and `post-ranking` events through the shared event dispatcher, converting planning parse and dependency failures into warning-driven fallback values, persisting aggregated `site_intelligence.raw_data` when the hosted schema supports it, preserving threshold-based fallback protection for post-ranking report decisions, and exposing orchestration summaries at the top level of the response while retaining legacy-schema-safe fallback when `raw_data` is still unavailable.
 
 ### zoning-agent
 Retrieves zoning controls.

@@ -9,6 +9,7 @@ Infrastructure
 - Edge function architecture
 - Database schema
 - hosted schema alignment migration series applied for legacy drift in `deals`, `site_intelligence`, `financial_snapshots`, `site_candidates`, and comparable-sales tables
+- additive hosted alignment now explicitly restores `site_intelligence.raw_data` and `site_intelligence.updated_at` without breaking legacy rows
 
 Planning Intelligence
 - zoning-agent
@@ -55,6 +56,7 @@ Testing
 - QA hardening completed for deal-report-agent, parcel-ranking-agent, and financial-engine-agent so malformed or empty deal identifiers now return consistent client errors instead of leaking downstream database failures
 - internal service-to-service auth handling hardened for deal-report-agent and financial-engine-agent so downstream function failures return structured dependency errors instead of raw 500 responses
 - site-intelligence-agent now avoids redundant batch ranking, validates UUID deal IDs, dispatches post-intelligence and post-ranking events, converts planning parse failures into structured fallback values, exposes orchestration summaries at the top level, and still falls back to the legacy threshold trigger when post-ranking rule evaluation fails
+- site-intelligence-agent now persists aggregated `site_intelligence.raw_data` when hosted schema alignment is present and degrades to warning-only legacy compatibility when the column is still unavailable
 - seeded orchestration rules now cover high-density post-intelligence follow-up, high-flood-risk logging, strong post-financial margin reporting, and thin-margin risk escalation
 - hosted production flow now runs cleanly in no-comparables mode after schema drift repair, with persisted deal, ranking, and report outputs aligned around the same score
 

@@ -38,6 +38,10 @@ Fields:
 
 Aggregated planning and feasibility context for a deal. One row per deal.
 
+Notes:
+- hosted alignment keeps legacy rows valid while ensuring `raw_data` and `updated_at` exist
+- `knowledge_context` is not part of `site_intelligence`; comparable-sales tables own that field
+
 Fields:
 - id (uuid, pk)
 - deal_id (uuid, unique fk -> deals.id)
