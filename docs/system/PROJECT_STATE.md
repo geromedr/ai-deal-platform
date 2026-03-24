@@ -39,6 +39,8 @@ Deal Management
 - deal-report-agent
 - notification-agent
 - get-deal-feed
+- get-top-deals
+- generate-deal-report
 - subscribe-deal-feed
 - deal-report-agent now builds structured investment summaries from deal, context, planning, yield, financial snapshot, comparable sales, and ranking data with fallback-safe human-readable output plus direct database fallbacks when optional reads or logging fail
 
@@ -60,6 +62,10 @@ Testing
 - deal-feed realtime support now exposes a lightweight `subscribe-deal-feed` endpoint, emits minimal `deal_id + priority_score + change_type` broadcasts, and falls back to postgres changes when broadcast channels are unavailable
 - user preferences are now modeled in `user_preferences`, allowing feed filtering and per-user notification matching with null-safe defaults when no preference row exists
 - notification-agent now evaluates all users against `user_preferences`, suppresses low-priority alerts unless explicitly allowed, throttles notifications per deal per user per timeframe, and logs per-user decisions into `ai_actions`
+- deal performance metrics are now tracked in `deal_performance`, with `get-deal-feed`, `notification-agent`, and `create-task` incrementing views, notifications, and action counts
+- rule-engine-agent now auto-creates duplicate-safe `Prepare lender pack` and `Re-evaluate feasibility` tasks when high-priority low-risk or significant-improvement conditions are met
+- get-top-deals now ranks deals by composite score using persisted `priority_score` plus `deal_performance` engagement
+- generate-deal-report now produces weekly structured JSON summaries for new, improved, and top deals and logs each report to `ai_actions`
 - deal-feed lifecycle cleanup now promotes rows from `active` to `stale` to `archived`, trims fallback realtime buffers, and adds query indexes for feed performance
 - event-driven orchestration now dispatches standardized event context from discovery, intelligence, ranking, and financial completion points, with duplicate suppression, in-progress recursion protection, and cached invocation reuse through `ai_actions`
 - action-layer compatibility normalization now maps legacy hosted `tasks`, `risks`, and `agent_action_rules` schemas into the current orchestration contracts, allowing hosted rule execution to continue without destructive schema changes

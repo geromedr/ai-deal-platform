@@ -5,6 +5,7 @@ import {
   getMarginFromFeedMetadata,
   getMarginFromFinancialMetadata,
   getStrategyFromDeal,
+  incrementDealPerformanceMetrics,
   isRecord,
   matchesUserPreferences,
   parseNumber,
@@ -312,6 +313,23 @@ serve(async (req) => {
       });
     }
 
+    const warnings: string[] = [];
+    const visibleItems = items.slice(0, limit);
+
+    for (const item of visibleItems) {
+      if (typeof item.deal_id !== "string") continue;
+
+      try {
+        await incrementDealPerformanceMetrics(supabase, {
+          deal_id: item.deal_id,
+          views: 1,
+          mark_viewed: true,
+        });
+      } catch (error) {
+        warnings.push(getErrorMessage(error));
+      }
+    }
+
     return jsonResponse({
       success: true,
       limit,
@@ -322,7 +340,8 @@ serve(async (req) => {
       },
       applied_preferences: userPreferences,
       sort_by: sortBy,
-      items: items.slice(0, limit),
+      items: visibleItems,
+      warnings,
     });
   } catch (error) {
     console.error("get-deal-feed failed", error);

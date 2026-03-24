@@ -240,6 +240,7 @@ Response:
 Notes:
 - `notification_type` is classified as `high_priority` when `priority_score >= 85` or `score >= 80`; otherwise it is `standard`
 - duplicate notification attempts still deduplicate on `deal_feed_id`
+- successful notifications increment `deal_performance.notifications_sent`
 
 ## Example: get-deal-feed
 
@@ -299,6 +300,93 @@ Notes:
 - default sort is `priority_score desc`; ties fall back to `created_at desc`
 - `priority_score` uses simple weighted logic: base score + margin contribution - flood/open-risk penalties
 - archived rows are excluded unless `status` is explicitly supplied
+- each returned deal increments `deal_performance.views` and updates `last_viewed_at`
+
+## Example: get-top-deals
+
+POST `/functions/v1/get-top-deals`
+
+Request:
+
+```json
+{
+  "limit": 10,
+  "sort_by": "composite_score"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "sort_by": "composite_score",
+  "limit": 10,
+  "items": [
+    {
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "score": 102.5,
+      "priority_score": 91.5,
+      "views": 14,
+      "actions_taken": 2
+    }
+  ]
+}
+```
+
+Notes:
+- default sort is `composite_score`
+- `score` is the composite ranking score derived from `priority_score`, `views`, and `actions_taken`
+- default limit is `10`
+
+## Example: generate-deal-report
+
+POST `/functions/v1/generate-deal-report`
+
+Request:
+
+```json
+{
+  "days": 7
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "report": {
+    "generated_at": "2026-03-24T00:00:00.000Z",
+    "period_start": "2026-03-17T00:00:00.000Z",
+    "period_end": "2026-03-24T00:00:00.000Z",
+    "new_deals": {
+      "count": 3,
+      "items": []
+    },
+    "improved_deals": {
+      "count": 1,
+      "items": []
+    },
+    "top_deals": {
+      "count": 10,
+      "items": []
+    },
+    "summary": {
+      "total_new_deals": 3,
+      "total_improved_deals": 1,
+      "top_deal_ids": [
+        "11111111-1111-1111-1111-111111111111"
+      ]
+    }
+  }
+}
+```
+
+Notes:
+- the function summarises the trailing weekly window by default
+- improved deals are sourced from `Re-evaluate feasibility` tasks
+- each generated report is logged to `ai_actions` with action `weekly_deal_report_generated`
 
 ## Example: subscribe-deal-feed
 
@@ -392,11 +480,16 @@ Response:
     "status": "open"
   },
   "compatibility_mode": "legacy",
+  "duplicate": false,
   "warnings": [
     "tasks table used legacy owner column"
   ]
 }
 ```
+
+Duplicate handling notes:
+- if an open task with the same `deal_id` and `title` already exists, the function returns `success: true`, `skipped: true`, and `duplicate: true`
+- successful task creation increments `deal_performance.actions_taken`
 
 ## Example: agent-orchestrator
 
@@ -823,8 +916,10 @@ Response:
 - `/get-agent-rules`
 - `/get-deal`
 - `/get-deal-feed`
+- `/get-top-deals`
 - `/get-deal-context`
 - `/get-deal-timeline`
+- `/generate-deal-report`
 - `/log-communication`
 - `/notification-agent`
 - `/subscribe-deal-feed`

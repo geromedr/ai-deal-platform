@@ -6,6 +6,7 @@ import {
   getMarginFromFeedMetadata,
   getMarginFromFinancialMetadata,
   getStrategyFromDeal,
+  incrementDealPerformanceMetrics,
   matchesUserPreferences,
   normalizeNotificationLevel,
   notificationLevelAllows,
@@ -323,6 +324,7 @@ serve(async (req) => {
     const userPreferences = await fetchUserPreferences(supabase);
     const decisionResults: Array<Record<string, unknown>> = [];
     const notifications: Array<Record<string, unknown>> = [];
+    const warnings: string[] = [];
 
     if (userPreferences.length === 0) {
       return jsonResponse({
@@ -427,6 +429,17 @@ serve(async (req) => {
       });
     }
 
+    if (notifications.length > 0) {
+      try {
+        await incrementDealPerformanceMetrics(supabase, {
+          deal_id,
+          notifications_sent: notifications.length,
+        });
+      } catch (error) {
+        warnings.push(getErrorMessage(error));
+      }
+    }
+
     console.log("notification-agent decisions logged", {
       deal_feed_id,
       deal_id,
@@ -441,6 +454,7 @@ serve(async (req) => {
       notification_type: notificationType,
       notifications,
       decisions: decisionResults,
+      warnings,
     });
   } catch (error) {
     console.error("notification-agent failed", error);

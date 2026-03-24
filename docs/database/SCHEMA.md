@@ -75,6 +75,24 @@ Fields:
 
 ---
 
+## deal_performance
+
+Engagement counters for surfaced deals. This table intentionally uses singular naming because the implementation requirement specified `deal_performance`.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, unique fk -> deals.id)
+- views (integer, default `0`)
+- notifications_sent (integer, default `0`)
+- actions_taken (integer, default `0`)
+- last_viewed_at (timestamptz)
+- created_at (timestamptz)
+
+Indexes:
+- deal_id
+
+---
+
 ## user_preferences
 
 Per-user deal-feed and notification preferences.

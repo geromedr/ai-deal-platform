@@ -8,7 +8,7 @@ This document lists all system agents.
 Executes structured actions returned by reasoning agents, with compatibility-aware writes for legacy hosted task and risk schemas.
 
 ### rule-engine-agent
-Evaluates event-scoped orchestration rules fetched from `get-agent-rules`, compares null-safe conditions against standardized event context (`score`, `zoning`, `zoning_density`, `flood_risk`, `yield`, `financials`), executes downstream agents in priority order with duplicate-safe report suppression, upserts high-quality `deal_feed` entries on `post-ranking` and `post-financial` when matched rules indicate strong score, margin, or low-risk signals, triggers `notification-agent` for persisted feed rows, and returns structured rule, feed, notification, and audit results for `post-discovery`, `post-intelligence`, `post-ranking`, and `post-financial`.
+Evaluates event-scoped orchestration rules fetched from `get-agent-rules`, compares null-safe conditions against standardized event context (`score`, `zoning`, `zoning_density`, `flood_risk`, `yield`, `financials`), executes downstream agents in priority order with duplicate-safe report suppression, upserts high-quality `deal_feed` entries on `post-ranking` and `post-financial` when matched rules indicate strong score, margin, or low-risk signals, triggers `notification-agent` for persisted feed rows, auto-creates duplicate-safe `Prepare lender pack` and `Re-evaluate feasibility` tasks when high-priority or significantly improved conditions are met, and returns structured rule, feed, notification, and audit results for `post-discovery`, `post-intelligence`, `post-ranking`, and `post-financial`.
 
 ### ai-agent
 Provides AI reasoning support with knowledge retrieval.
@@ -35,6 +35,12 @@ Processes inbound emails, updates deal communications, and triggers downstream a
 
 ### notification-agent
 Evaluates each `deal_feed` update against `user_preferences`, suppresses low-priority or throttled notifications, writes per-user `notification_decision` and `deal_alert` audit rows to `ai_actions`, and enforces max one notification per deal per user within the configured throttle window.
+
+### get-top-deals
+Returns the top-ranked deals using `priority_score` plus engagement metrics from `deal_performance`, defaulting to composite-score ordering and a top-10 result set.
+
+### generate-deal-report
+Builds a weekly structured JSON summary of new deals, improved deals, and top deals, then logs the generated report to `ai_actions`.
 
 ### subscribe-deal-feed
 Returns the Realtime subscription contract for `deal_feed`, exposing the primary `deal-feed` broadcast topic plus a postgres-changes fallback channel and the caller's optional `user_preferences`.

@@ -70,6 +70,13 @@ type EvaluationContext = {
   financials: number | null;
 };
 
+type AutoTaskDefinition = {
+  title: string;
+  description: string;
+  reason: string;
+  priority: number;
+};
+
 type EvaluatedRule = {
   rule: RuleDefinition;
   source_rule_id: string;
@@ -667,6 +674,125 @@ function buildDefaultRules(event: RuleEngineEvent): RuleDefinition[] {
   }];
 }
 
+function isLowRiskContext(context: EvaluationContext) {
+  const normalized = context.flood_risk?.trim().toLowerCase() ?? "";
+  return normalized.includes("low") && !normalized.includes("medium") &&
+    !normalized.includes("high");
+}
+
+async function fetchPreviousContextBaseline(supabase: any, deal_id: string) {
+  const { data, error } = await supabase
+    .from("deal_feed")
+    .select("score, priority_score, metadata, updated_at, created_at")
+    .eq("deal_id", deal_id)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  for (const row of data ?? []) {
+    const metadata = isRecord(row.metadata) ? row.metadata : null;
+    const previousContext = isRecord(metadata?.context)
+      ? metadata.context
+      : null;
+    const previousScore = parseNumber(
+      previousContext?.score ?? row.score ?? null,
+    );
+    const previousMargin = parseNumber(
+      previousContext?.financials ?? metadata?.margin ?? null,
+    );
+    const previousPriorityScore = parseNumber(
+      row.priority_score ?? metadata?.priority_score ?? null,
+    );
+
+    if (
+      previousScore !== null || previousMargin !== null ||
+      previousPriorityScore !== null
+    ) {
+      return {
+        score: previousScore,
+        financials: previousMargin,
+        priority_score: previousPriorityScore,
+      };
+    }
+  }
+
+  return null;
+}
+
+async function buildAutoTaskDefinitions(
+  supabase: any,
+  context: EvaluationContext,
+): Promise<AutoTaskDefinition[]> {
+  const tasks: AutoTaskDefinition[] = [];
+  const priorityScore = computePriorityScore({
+    score: context.score,
+    margin: context.financials,
+    floodRisk: context.flood_risk,
+    risks: [],
+  });
+
+  if (priorityScore > 90 && isLowRiskContext(context)) {
+    tasks.push({
+      title: "Prepare lender pack",
+      description:
+        "Priority score exceeded 90 with low risk. Assemble lender-ready deal materials and funding inputs.",
+      reason: `priority_score ${priorityScore.toFixed(2)} > 90 and risk is low`,
+      priority: 5,
+    });
+  }
+
+  const previousBaseline = await fetchPreviousContextBaseline(
+    supabase,
+    context.deal_id,
+  );
+  const scoreImprovement =
+    context.score !== null && previousBaseline?.score != null
+      ? context.score - previousBaseline.score
+      : null;
+  const marginImprovement =
+    context.financials !== null && previousBaseline?.financials != null
+      ? context.financials - previousBaseline.financials
+      : null;
+  const priorityImprovement = previousBaseline?.priority_score != null
+    ? priorityScore - previousBaseline.priority_score
+    : null;
+  const significantlyImproved =
+    (scoreImprovement !== null && scoreImprovement >= 10) ||
+    (marginImprovement !== null && marginImprovement >= 0.05) ||
+    (priorityImprovement !== null && priorityImprovement >= 12);
+
+  if (significantlyImproved) {
+    const improvementReasons = [
+      scoreImprovement !== null
+        ? `score delta ${scoreImprovement.toFixed(2)}`
+        : null,
+      marginImprovement !== null
+        ? `margin delta ${(marginImprovement * 100).toFixed(1)}%`
+        : null,
+      priorityImprovement !== null
+        ? `priority delta ${priorityImprovement.toFixed(2)}`
+        : null,
+    ].filter(Boolean).join(", ");
+
+    tasks.push({
+      title: "Re-evaluate feasibility",
+      description: `Deal performance improved significantly${
+        improvementReasons ? ` (${improvementReasons})` : ""
+      }. Review assumptions and refresh feasibility outputs.`,
+      reason: improvementReasons
+        ? `Deal improved significantly: ${improvementReasons}`
+        : "Deal improved significantly",
+      priority: 6,
+    });
+  }
+
+  return tasks;
+}
+
 function buildDealFeedSummary(
   context: EvaluationContext,
   matchedRules: EvaluatedRule[],
@@ -1138,6 +1264,49 @@ serve(async (req) => {
         error: result.error ?? null,
         data: result.data ?? null,
       });
+    }
+
+    try {
+      const autoTasks = await buildAutoTaskDefinitions(supabase, context);
+
+      for (const task of autoTasks) {
+        const result = await invokeAction(
+          supabaseUrl,
+          serviceKey,
+          authorizationHeader,
+          "create-task",
+          {
+            deal_id,
+            title: task.title,
+            description: task.description,
+          },
+        );
+
+        executed_actions.push({
+          source_rule_id: "auto-action-engine",
+          event,
+          condition: task.reason,
+          action: "create-task",
+          priority: task.priority,
+          success: result.success,
+          skipped: result.skipped ?? false,
+          reason: task.reason,
+          error: result.error ?? null,
+          data: result.data ?? null,
+        });
+
+        if (!result.success) {
+          warnings.push(
+            `Failed to create auto task "${task.title}": ${
+              result.error ?? "unknown error"
+            }`,
+          );
+        }
+      }
+    } catch (error) {
+      warnings.push(
+        `Failed to evaluate auto-action tasks: ${getErrorMessage(error)}`,
+      );
     }
 
     try {

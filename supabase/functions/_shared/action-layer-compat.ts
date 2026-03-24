@@ -167,15 +167,7 @@ export function normalizeAgentActionRuleRow(row: unknown): NormalizedRuleRow {
 }
 
 export async function insertTaskWithCompatibility(
-  supabase: {
-    from: (table: string) => {
-      insert: (payload: CompatRecord) => {
-        select: () => {
-          single: () => Promise<{ data: unknown; error: unknown }>
-        }
-      }
-    }
-  },
+  supabase: any,
   payload: {
     deal_id: string
     title: string
@@ -231,15 +223,7 @@ export async function insertTaskWithCompatibility(
 }
 
 export async function insertRiskWithCompatibility(
-  supabase: {
-    from: (table: string) => {
-      insert: (payload: CompatRecord) => {
-        select: () => {
-          single: () => Promise<{ data: unknown; error: unknown }>
-        }
-      }
-    }
-  },
+  supabase: any,
   payload: {
     deal_id: string
     title: string | null

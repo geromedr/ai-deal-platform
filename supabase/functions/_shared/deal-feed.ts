@@ -111,6 +111,32 @@ export function computePriorityScore(input: {
   return Number((scoreComponent + marginComponent - riskPenalty).toFixed(2));
 }
 
+export function computeEngagementScore(input: {
+  views: number | null;
+  actionsTaken: number | null;
+}) {
+  const views = input.views ?? 0;
+  const actionsTaken = input.actionsTaken ?? 0;
+
+  return Number((views * 0.25 + actionsTaken * 6).toFixed(2));
+}
+
+export function computeCompositeDealScore(input: {
+  priorityScore: number | null;
+  views: number | null;
+  actionsTaken: number | null;
+}) {
+  return Number(
+    (
+      (input.priorityScore ?? 0) +
+      computeEngagementScore({
+        views: input.views,
+        actionsTaken: input.actionsTaken,
+      })
+    ).toFixed(2),
+  );
+}
+
 export function classifyNotificationType(input: {
   score: number | null;
   priorityScore: number | null;
@@ -187,4 +213,27 @@ export function matchesUserPreferences(input: {
   }
 
   return preferredStrategy ? false : true;
+}
+
+export async function incrementDealPerformanceMetrics(
+  supabase: any,
+  input: {
+    deal_id: string;
+    views?: number;
+    notifications_sent?: number;
+    actions_taken?: number;
+    mark_viewed?: boolean;
+  },
+) {
+  const { error } = await supabase.rpc("increment_deal_performance_metrics", {
+    p_deal_id: input.deal_id,
+    p_views: input.views ?? 0,
+    p_notifications_sent: input.notifications_sent ?? 0,
+    p_actions_taken: input.actions_taken ?? 0,
+    p_mark_viewed: input.mark_viewed ?? false,
+  });
+
+  if (error) {
+    throw new Error(error.message ?? "Failed to increment deal performance");
+  }
 }

@@ -648,3 +648,13 @@ entrypoint = "./functions/get-deal-feed/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/subscribe-deal-feed/index.ts"
+
+[functions.get-top-deals]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/get-top-deals/index.ts"
+
+[functions.generate-deal-report]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/generate-deal-report/index.ts"
