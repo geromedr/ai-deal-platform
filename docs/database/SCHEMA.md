@@ -25,7 +25,7 @@ Fields:
 - suburb (text)
 - state (text)
 - postcode (text)
-- status (text, default `new`)
+- status (text, default `new`; deal workflow lifecycle now supports `active -> reviewing -> approved -> funded -> completed`, with workflow triggers able to promote high-priority deals and fully completed task sets)
 - stage (text, default `opportunity`)
 - source (text)
 - metadata (jsonb)

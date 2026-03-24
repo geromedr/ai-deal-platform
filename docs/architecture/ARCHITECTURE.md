@@ -69,6 +69,8 @@ Uses stage-completion events to drive downstream orchestration rules.
 - `financial-engine-agent` dispatches `post-financial`
 - the shared event dispatcher invokes `rule-engine-agent`, logs `event_triggered` and `rule_engine_invoked` records to `ai_actions`, and suppresses duplicate processing for the same `deal_id` and event
 - `rule-engine-agent` fetches event-scoped rules from `get-agent-rules`, evaluates them against persisted planning, yield, ranking, and financial context, and executes matching actions in priority order
+- `notification-agent` now extends the action layer with external high-priority email and webhook delivery, while recording delivery status in `ai_actions`
+- database workflow triggers promote `deals.status` from `active` to `reviewing` when high-priority feed entries are persisted and from `reviewing` to `approved` when all linked tasks are completed, with deduplicated status-transition logging
 - `site-intelligence-agent` preserves the legacy score-threshold fallback if post-ranking rule execution fails or no report rule matches
 - hosted environments may require additive schema-alignment migrations before autonomous orchestration can persist deal, feasibility, comparable-sales, and ranking outputs consistently
 

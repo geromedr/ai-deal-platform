@@ -658,3 +658,8 @@ entrypoint = "./functions/get-top-deals/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/generate-deal-report/index.ts"
+
+[functions.generate-deal-pack]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/generate-deal-pack/index.ts"

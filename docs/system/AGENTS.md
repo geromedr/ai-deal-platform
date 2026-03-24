@@ -26,7 +26,7 @@ Generates the final investment-ready report for a development opportunity by agg
 Creates task records linked to deals and normalizes legacy hosted task rows into the current response shape.
 
 ### update-deal-stage
-Updates lifecycle stage for an existing deal.
+Updates deal stage and deal status for an existing deal, validates lifecycle transitions, supports automatic task-completion evaluation, and deduplicates transition audit logging in `ai_actions`.
 
 ## Communication
 
@@ -34,13 +34,16 @@ Updates lifecycle stage for an existing deal.
 Processes inbound emails, updates deal communications, and triggers downstream agents.
 
 ### notification-agent
-Evaluates each `deal_feed` update against `user_preferences`, suppresses low-priority or throttled notifications, writes per-user `notification_decision` and `deal_alert` audit rows to `ai_actions`, and enforces max one notification per deal per user within the configured throttle window.
+Evaluates each `deal_feed` update against `user_preferences`, suppresses low-priority or throttled notifications, writes per-user `notification_decision` and `deal_alert` audit rows to `ai_actions`, and enforces max one notification per deal per user within the configured throttle window. For `high_priority` deals it also sends external email and webhook alerts, includes score, summary, and deal reference links, retries webhook delivery on failure, and logs delivery outcomes in `ai_actions`.
 
 ### get-top-deals
 Returns the top-ranked deals using `priority_score` plus engagement metrics from `deal_performance`, defaulting to composite-score ordering and a top-10 result set.
 
 ### generate-deal-report
 Builds a weekly structured JSON summary of new deals, improved deals, and top deals, then logs the generated report to `ai_actions`.
+
+### generate-deal-pack
+Builds a structured investor-facing JSON deal pack containing deal summary, financials, risks, and comparable context, with render hints so the output can later be converted to PDF, then logs generation in `ai_actions`.
 
 ### subscribe-deal-feed
 Returns the Realtime subscription contract for `deal_feed`, exposing the primary `deal-feed` broadcast topic plus a postgres-changes fallback channel and the caller's optional `user_preferences`.

@@ -233,6 +233,20 @@ Response:
       "reason": "Preference matched",
       "notification_level": "high_priority_only"
     }
+  ],
+  "deliveries": [
+    {
+      "channel": "email",
+      "status": "delivered",
+      "reason": "Email alert sent",
+      "attempts": 1
+    },
+    {
+      "channel": "webhook",
+      "status": "delivered",
+      "reason": "Webhook alert sent",
+      "attempts": 1
+    }
   ]
 }
 ```
@@ -241,6 +255,9 @@ Notes:
 - `notification_type` is classified as `high_priority` when `priority_score >= 85` or `score >= 80`; otherwise it is `standard`
 - duplicate notification attempts still deduplicate on `deal_feed_id`
 - successful notifications increment `deal_performance.notifications_sent`
+- external email and webhook delivery run only for `high_priority` notifications
+- email delivery expects `NOTIFICATION_EMAIL_API_URL`, `NOTIFICATION_EMAIL_FROM`, and `NOTIFICATION_EMAIL_TO`; API auth can be supplied with `NOTIFICATION_EMAIL_API_KEY`
+- webhook delivery uses `NOTIFICATION_WEBHOOK_URL`, supports `structured` or `slack` payload formatting via `NOTIFICATION_WEBHOOK_FORMAT`, and retries failures using `NOTIFICATION_WEBHOOK_MAX_RETRIES`
 
 ## Example: get-deal-feed
 
@@ -387,6 +404,94 @@ Notes:
 - the function summarises the trailing weekly window by default
 - improved deals are sourced from `Re-evaluate feasibility` tasks
 - each generated report is logged to `ai_actions` with action `weekly_deal_report_generated`
+
+## Example: generate-deal-pack
+
+POST `/functions/v1/generate-deal-pack`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "deal_pack": {
+    "generated_at": "2026-03-24T00:00:00.000Z",
+    "format": "deal-pack.v1",
+    "pdf_ready": true,
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "deal_summary": {
+      "address": "12 Marine Parade, Kingscliff, NSW, 2487",
+      "status": "reviewing",
+      "stage": "opportunity"
+    },
+    "financials": {
+      "latest_snapshot": {
+        "category": "financial-engine"
+      }
+    },
+    "risks": [],
+    "comparable_context": [],
+    "render_hints": {
+      "document_title": "Deal Pack - 12 Marine Parade, Kingscliff, NSW, 2487",
+      "sections": [
+        "deal_summary",
+        "financials",
+        "risks",
+        "comparable_context"
+      ]
+    }
+  }
+}
+```
+
+Notes:
+- `deal_id` must be a non-empty UUID
+- the response is structured for future PDF conversion and logs `deal_pack_generated` to `ai_actions`
+
+## Example: update-deal-stage
+
+POST `/functions/v1/update-deal-stage`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "new_status": "reviewing",
+  "transition_reason": "manual review started"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "updated_deal": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "status": "reviewing"
+  },
+  "changes": {
+    "status_changed": true,
+    "stage_changed": false
+  },
+  "warnings": []
+}
+```
+
+Notes:
+- manual status transitions are validated against `active -> reviewing -> approved -> funded -> completed`
+- the function still supports `new_stage` updates for existing callers
+- `auto_evaluate: true` can be used to promote a deal to `approved` when all linked tasks are complete
+- duplicate transition requests are returned as `success: true` with `skipped: true`
 
 ## Example: subscribe-deal-feed
 
@@ -920,6 +1025,7 @@ Response:
 - `/get-deal-context`
 - `/get-deal-timeline`
 - `/generate-deal-report`
+- `/generate-deal-pack`
 - `/log-communication`
 - `/notification-agent`
 - `/subscribe-deal-feed`

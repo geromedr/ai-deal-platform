@@ -41,8 +41,10 @@ Deal Management
 - get-deal-feed
 - get-top-deals
 - generate-deal-report
+- generate-deal-pack
 - subscribe-deal-feed
 - deal-report-agent now builds structured investment summaries from deal, context, planning, yield, financial snapshot, comparable sales, and ranking data with fallback-safe human-readable output plus direct database fallbacks when optional reads or logging fail
+- generate-deal-pack now builds structured investor deal-pack JSON with summary, financials, risks, comparable context, and PDF-ready render hints
 
 Testing
 - test-agent
@@ -62,6 +64,7 @@ Testing
 - deal-feed realtime support now exposes a lightweight `subscribe-deal-feed` endpoint, emits minimal `deal_id + priority_score + change_type` broadcasts, and falls back to postgres changes when broadcast channels are unavailable
 - user preferences are now modeled in `user_preferences`, allowing feed filtering and per-user notification matching with null-safe defaults when no preference row exists
 - notification-agent now evaluates all users against `user_preferences`, suppresses low-priority alerts unless explicitly allowed, throttles notifications per deal per user per timeframe, and logs per-user decisions into `ai_actions`
+- notification-agent now sends external high-priority email and webhook alerts, includes deal summary, score, and reference links, retries webhook delivery, and logs delivery outcomes in `ai_actions`
 - deal performance metrics are now tracked in `deal_performance`, with `get-deal-feed`, `notification-agent`, and `create-task` incrementing views, notifications, and action counts
 - rule-engine-agent now auto-creates duplicate-safe `Prepare lender pack` and `Re-evaluate feasibility` tasks when high-priority low-risk or significant-improvement conditions are met
 - get-top-deals now ranks deals by composite score using persisted `priority_score` plus `deal_performance` engagement
@@ -76,6 +79,7 @@ Testing
 - site-intelligence-agent now persists aggregated `site_intelligence.raw_data` when hosted schema alignment is present and degrades to warning-only legacy compatibility when the column is still unavailable
 - seeded orchestration rules now cover high-density post-intelligence follow-up, high-flood-risk logging, strong post-financial margin reporting, and thin-margin risk escalation
 - hosted production flow now runs cleanly in no-comparables mode after schema drift repair, with persisted deal, ranking, and report outputs aligned around the same score
+- deal status workflow now supports `active -> reviewing -> approved -> funded -> completed`, auto-moves high-priority deals to `reviewing`, auto-moves deals with fully completed task sets to `approved`, and deduplicates transition logs in `ai_actions`
 
 ## Planned
 
