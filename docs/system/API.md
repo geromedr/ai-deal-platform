@@ -141,6 +141,20 @@ Response:
       "error": null
     }
   ],
+  "deal_feed_entry": {
+    "id": "44444444-4444-4444-4444-444444444444",
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "score": 82,
+    "trigger_event": "post-ranking",
+    "summary": "High-quality deal matched: score 82, margin 19.0%, risk Low",
+    "status": "pending"
+  },
+  "notification_result": {
+    "success": true,
+    "skipped": false,
+    "reason": null,
+    "error": null
+  },
   "skipped_rules": [],
   "warnings": []
 }
@@ -151,12 +165,177 @@ Rule evaluation notes:
 - supported conjunction: `AND`
 - null-safe rules such as `financials != null AND financials > 0.2` are valid
 - empty rule sets return `No rules configured for event; default fallback rule set loaded`
+- `deal_feed` upserts run only on `post-ranking` and `post-financial`
+- when a matched rule includes high-quality score, margin, or low-risk clauses, the function upserts a `deal_feed` row keyed by `deal_id + trigger_event`
+- after a `deal_feed` row is persisted, `notification-agent` is invoked with the row payload to log a `deal_alert`
 
 Dispatcher deduplication notes:
 - event dispatch dedupe now uses `deal_id + event + context_hash`
 - `context_hash` is derived deterministically from `score`, `zoning`, `yield`, and `financials`
 - identical context is skipped, changed context is allowed to re-run
 - older `ai_actions` records without `context_hash` still use legacy `deal_id + event` fallback until hashed history exists for that event
+- `deal_feed` also enforces `deal_id + trigger_event` uniqueness, so qualifying re-runs update the existing feed entry instead of creating duplicates
+- `notification-agent` evaluates each subscribed user independently and throttles to at most one `deal_alert` per deal per user in the configured timeframe
+
+## Example: notification-agent
+
+POST `/functions/v1/notification-agent`
+
+Validation notes:
+- `deal_feed_id` and `deal_id` must be non-empty UUIDs
+- `trigger_event` and `summary` are required
+- notifications are matched against `user_preferences`, low-priority alerts are suppressed unless the user's `notification_level` allows them, and each decision is logged into `ai_actions`
+
+Request:
+
+```json
+{
+  "deal_feed_id": "44444444-4444-4444-4444-444444444444",
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "score": 82,
+  "priority_score": 91.4,
+  "trigger_event": "post-ranking",
+  "summary": "High-quality deal matched: score 82, margin 19.0%, risk Low"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "skipped": false,
+  "notification_type": "high_priority",
+  "notifications": [
+    {
+      "id": "55555555-5555-5555-5555-555555555555",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "agent": "notification-agent",
+      "action": "deal_alert",
+      "source": "deal_feed",
+      "payload": {
+        "type": "deal_alert",
+        "user_id": "66666666-6666-6666-6666-666666666666",
+        "notification_type": "high_priority",
+        "deal_feed_id": "44444444-4444-4444-4444-444444444444",
+        "deal_id": "11111111-1111-1111-1111-111111111111",
+        "score": 82,
+        "priority_score": 91.4,
+        "trigger_event": "post-ranking",
+        "summary": "High-quality deal matched: score 82, margin 19.0%, risk Low"
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "user_id": "66666666-6666-6666-6666-666666666666",
+      "decision": "sent",
+      "reason": "Preference matched",
+      "notification_level": "high_priority_only"
+    }
+  ]
+}
+```
+
+Notes:
+- `notification_type` is classified as `high_priority` when `priority_score >= 85` or `score >= 80`; otherwise it is `standard`
+- duplicate notification attempts still deduplicate on `deal_feed_id`
+
+## Example: get-deal-feed
+
+POST `/functions/v1/get-deal-feed`
+
+Request:
+
+```json
+{
+  "limit": 20,
+  "score": 60,
+  "status": "pending",
+  "sort_by": "priority_score",
+  "user_id": "66666666-6666-6666-6666-666666666666"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "limit": 20,
+  "filters": {
+    "score": 60,
+    "status": "pending",
+    "user_id": "66666666-6666-6666-6666-666666666666"
+  },
+  "applied_preferences": {
+    "user_id": "66666666-6666-6666-6666-666666666666",
+    "min_score": 60,
+    "preferred_strategy": "hold-and-develop",
+    "notification_level": "high_priority_only"
+  },
+  "sort_by": "priority_score",
+  "items": [
+    {
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "score": 82,
+      "priority_score": 91.4,
+      "trigger_event": "post-ranking",
+      "summary": "High-quality deal matched: score 82, margin 19.0%, risk Low",
+      "created_at": "2026-03-24T00:00:00.000Z",
+      "status": "pending",
+      "address": "12 Marine Parade, Kingscliff NSW 2487",
+      "suburb": "Kingscliff",
+      "strategy": "hold-and-develop",
+      "stage": "opportunity"
+    }
+  ]
+}
+```
+
+Notes:
+- default `limit` is `20`
+- optional filters: `score` is treated as a minimum score, `status` filters by exact lifecycle status, and `user_id` applies `user_preferences` when present
+- default sort is `priority_score desc`; ties fall back to `created_at desc`
+- `priority_score` uses simple weighted logic: base score + margin contribution - flood/open-risk penalties
+- archived rows are excluded unless `status` is explicitly supplied
+
+## Example: subscribe-deal-feed
+
+POST `/functions/v1/subscribe-deal-feed`
+
+Request:
+
+```json
+{
+  "user_id": "66666666-6666-6666-6666-666666666666"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "channel": {
+    "topic": "deal-feed",
+    "event": "deal_feed_change",
+    "type": "broadcast"
+  },
+  "fallback": {
+    "topic": "deal-feed-fallback",
+    "event": "postgres_changes",
+    "schema": "public",
+    "table": "deal_feed_realtime_fallback"
+  },
+  "user_preferences": {
+    "user_id": "66666666-6666-6666-6666-666666666666",
+    "min_score": 60,
+    "preferred_strategy": "hold-and-develop",
+    "notification_level": "high_priority_only"
+  }
+}
+```
 
 ## Example: email-agent
 
@@ -643,9 +822,12 @@ Response:
 - `/email-agent`
 - `/get-agent-rules`
 - `/get-deal`
+- `/get-deal-feed`
 - `/get-deal-context`
 - `/get-deal-timeline`
 - `/log-communication`
+- `/notification-agent`
+- `/subscribe-deal-feed`
 - `/update-deal-stage`
 - `/site-intelligence-agent`
 - `/zoning-agent`

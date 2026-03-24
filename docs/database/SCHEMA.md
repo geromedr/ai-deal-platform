@@ -34,6 +34,65 @@ Fields:
 
 ---
 
+## deal_feed
+
+Source of truth for surfaced opportunities and feed entries emitted for a deal. One row per `deal_id + trigger_event`.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- score (numeric)
+- priority_score (numeric)
+- status (text, default `active`; lifecycle `active -> stale -> archived`)
+- trigger_event (text)
+- summary (text)
+- metadata (jsonb)
+- stale_at (timestamptz)
+- archived_at (timestamptz)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Unique:
+- (deal_id, trigger_event)
+
+Indexes:
+- deal_id
+- created_at
+- priority_score + updated_at
+- status + priority_score + updated_at
+
+---
+
+## deal_feed_realtime_fallback
+
+Fallback realtime event buffer used when broadcast channels are unavailable. Intended to emit minimal deal-feed change payloads.
+
+Fields:
+- deal_id (uuid, fk-ish reference to deals.id)
+- priority_score (numeric)
+- change_type (text)
+- created_at (timestamptz)
+
+---
+
+## user_preferences
+
+Per-user deal-feed and notification preferences.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- user_id (uuid, fk -> auth.users.id)
+- min_score (numeric)
+- preferred_strategy (text)
+- notification_level (text, default `high_priority_only`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Unique:
+- (user_id)
+
+---
+
 ## site_intelligence
 
 Aggregated planning and feasibility context for a deal. One row per deal.

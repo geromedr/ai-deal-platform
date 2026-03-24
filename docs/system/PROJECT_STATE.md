@@ -37,6 +37,9 @@ Deal Management
 - deal-agent
 - deal-intelligence
 - deal-report-agent
+- notification-agent
+- get-deal-feed
+- subscribe-deal-feed
 - deal-report-agent now builds structured investment summaries from deal, context, planning, yield, financial snapshot, comparable sales, and ranking data with fallback-safe human-readable output plus direct database fallbacks when optional reads or logging fail
 
 Testing
@@ -50,6 +53,14 @@ Testing
 - improved feasibility modelling
 - request validation and pipeline fallback handling hardened across recently upgraded feasibility and orchestration agents
 - rule-engine-agent now supports event-scoped orchestration rules with null-safe condition parsing for `score`, `zoning`, `zoning_density`, `flood_risk`, `yield`, and `financials`, priority-ordered action execution, duplicate-safe report suppression, and a default fallback rule path when persisted rules are unavailable
+- rule-engine-agent now upserts `deal_feed` entries for high-quality `post-ranking` and `post-financial` matches, including strong score, margin, and low-risk signals, using existing event deduplication plus `deal_feed` uniqueness on `deal_id + trigger_event` to avoid duplicates
+- notification-agent now logs initial `deal_alert` notification events to `ai_actions` for persisted `deal_feed` rows and suppresses duplicates by `deal_feed_id`
+- get-deal-feed now returns a flat enriched feed joined to `deals`, with weighted `priority_score` ranking derived from feed score, feasibility margin, and risk penalties
+- notification-agent now classifies notifications into `high_priority` or `standard`, persists `priority_score` and `notification_type` into `ai_actions`, and preserves `deal_feed_id`-based deduplication
+- deal-feed realtime support now exposes a lightweight `subscribe-deal-feed` endpoint, emits minimal `deal_id + priority_score + change_type` broadcasts, and falls back to postgres changes when broadcast channels are unavailable
+- user preferences are now modeled in `user_preferences`, allowing feed filtering and per-user notification matching with null-safe defaults when no preference row exists
+- notification-agent now evaluates all users against `user_preferences`, suppresses low-priority alerts unless explicitly allowed, throttles notifications per deal per user per timeframe, and logs per-user decisions into `ai_actions`
+- deal-feed lifecycle cleanup now promotes rows from `active` to `stale` to `archived`, trims fallback realtime buffers, and adds query indexes for feed performance
 - event-driven orchestration now dispatches standardized event context from discovery, intelligence, ranking, and financial completion points, with duplicate suppression, in-progress recursion protection, and cached invocation reuse through `ai_actions`
 - action-layer compatibility normalization now maps legacy hosted `tasks`, `risks`, and `agent_action_rules` schemas into the current orchestration contracts, allowing hosted rule execution to continue without destructive schema changes
 - event dispatcher deduplication is now context-aware, using a deterministic hash of `score`, `zoning`, `yield`, and `financials` so changed deal state re-runs orchestration while identical context is still suppressed, with legacy fallback retained for older un-hashed audit rows

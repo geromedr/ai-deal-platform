@@ -8,7 +8,7 @@ This document lists all system agents.
 Executes structured actions returned by reasoning agents, with compatibility-aware writes for legacy hosted task and risk schemas.
 
 ### rule-engine-agent
-Evaluates event-scoped orchestration rules fetched from `get-agent-rules`, compares null-safe conditions against standardized event context (`score`, `zoning`, `zoning_density`, `flood_risk`, `yield`, `financials`), executes downstream agents in priority order with duplicate-safe report suppression, and returns structured rule and audit results for `post-discovery`, `post-intelligence`, `post-ranking`, and `post-financial`.
+Evaluates event-scoped orchestration rules fetched from `get-agent-rules`, compares null-safe conditions against standardized event context (`score`, `zoning`, `zoning_density`, `flood_risk`, `yield`, `financials`), executes downstream agents in priority order with duplicate-safe report suppression, upserts high-quality `deal_feed` entries on `post-ranking` and `post-financial` when matched rules indicate strong score, margin, or low-risk signals, triggers `notification-agent` for persisted feed rows, and returns structured rule, feed, notification, and audit results for `post-discovery`, `post-intelligence`, `post-ranking`, and `post-financial`.
 
 ### ai-agent
 Provides AI reasoning support with knowledge retrieval.
@@ -32,6 +32,12 @@ Updates lifecycle stage for an existing deal.
 
 ### email-agent
 Processes inbound emails, updates deal communications, and triggers downstream agents.
+
+### notification-agent
+Evaluates each `deal_feed` update against `user_preferences`, suppresses low-priority or throttled notifications, writes per-user `notification_decision` and `deal_alert` audit rows to `ai_actions`, and enforces max one notification per deal per user within the configured throttle window.
+
+### subscribe-deal-feed
+Returns the Realtime subscription contract for `deal_feed`, exposing the primary `deal-feed` broadcast topic plus a postgres-changes fallback channel and the caller's optional `user_preferences`.
 
 ### log-communication
 Stores communication history.
@@ -114,6 +120,9 @@ Fetches core deal data and related records.
 
 ### get-deal-context
 Retrieves contextual information across deal records.
+
+### get-deal-feed
+Returns recent `deal_feed` entries with optional minimum score, status, and `user_id` preference filtering, joined to `deals` for flat address, suburb, strategy, and stage fields, while using the persisted or computed weighted `priority_score`.
 
 ## Rules
 

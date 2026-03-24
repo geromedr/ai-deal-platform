@@ -632,3 +632,19 @@ entrypoint = "./functions/site-intelligence-agent/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/yield-agent/index.ts"
+
+[functions.notification-agent]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/notification-agent/index.ts"
+
+[functions.get-deal-feed]
+enabled = true
+verify_jwt = true
+import_map = "./functions/get-deal-feed/deno.json"
+entrypoint = "./functions/get-deal-feed/index.ts"
+
+[functions.subscribe-deal-feed]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/subscribe-deal-feed/index.ts"
