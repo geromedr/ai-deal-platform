@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type Candidate = {
   source: string
@@ -27,7 +28,7 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error"
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "site-discovery-agent", requiredFields: [{ name: "candidates", type: "array", minItems: 1 }] }, async (req) => {
 
   try {
 
@@ -317,4 +318,5 @@ serve(async (req) => {
 
   }
 
-})
+}));
+

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type RankingRequest = {
   deal_id?: string
@@ -483,7 +484,7 @@ async function getDealRankingInput(
   }
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "parcel-ranking-agent" }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }
@@ -752,4 +753,5 @@ serve(async (req) => {
       error: error instanceof Error ? error.message : "Unknown error"
     }, error instanceof Error && "status" in error && typeof error.status === "number" ? error.status : 500)
   }
-})
+}));
+

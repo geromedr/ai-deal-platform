@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "deal-intelligence", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
@@ -159,4 +160,5 @@ Return JSON:
 
   }
 
-})
+}));
+

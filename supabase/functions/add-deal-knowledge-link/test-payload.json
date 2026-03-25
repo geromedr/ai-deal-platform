@@ -1,0 +1,10 @@
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "document_type": "market_report",
+  "source_ref": "knowledge://market-report-q1-2026",
+  "summary": "Quarterly market report linked to the deal.",
+  "metadata": {
+    "category": "market",
+    "source_name": "market-report-q1-2026"
+  }
+}

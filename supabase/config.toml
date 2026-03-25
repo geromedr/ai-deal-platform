@@ -663,3 +663,63 @@ entrypoint = "./functions/generate-deal-report/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/generate-deal-pack/index.ts"
+
+[functions.system-health-check]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/system-health-check/index.ts"
+
+[functions.get-operator-summary]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/get-operator-summary/index.ts"
+
+[functions.add-deal-knowledge-link]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/add-deal-knowledge-link/index.ts"
+
+[functions.get-deal-reports]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/get-deal-reports/index.ts"
+
+[functions.allocate-capital]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/allocate-capital/index.ts"
+
+[functions.update-deal-outcome]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/update-deal-outcome/index.ts"
+
+[functions.get-deal-funnel]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/get-deal-funnel/index.ts"
+
+[functions.get-usage-summary]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/get-usage-summary/index.ts"
+
+[functions.approve-approval-queue]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/approve-approval-queue/index.ts"
+
+[functions.update-system-settings]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/update-system-settings/index.ts"
+
+[functions.cleanup]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/cleanup/index.ts"
+
+[functions.internal-ops-dashboard]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/internal-ops-dashboard/index.ts"

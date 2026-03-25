@@ -11,6 +11,7 @@ Validation:
 - endpoints return `400` for missing or malformed required inputs
 - endpoints return `500` for downstream or infrastructure failures
 - resilient orchestration endpoints may return `200` with warnings when cached data is reused, optional stages are skipped, or partial data is returned safely
+- all agents now run a shared pre-execution validation step before handler logic and log a standardized `agent_execution` audit record to `ai_actions`
 
 ## Example: site-intelligence-agent
 
@@ -258,6 +259,435 @@ Notes:
 - external email and webhook delivery run only for `high_priority` notifications
 - email delivery expects `NOTIFICATION_EMAIL_API_URL`, `NOTIFICATION_EMAIL_FROM`, and `NOTIFICATION_EMAIL_TO`; API auth can be supplied with `NOTIFICATION_EMAIL_API_KEY`
 - webhook delivery uses `NOTIFICATION_WEBHOOK_URL`, supports `structured` or `slack` payload formatting via `NOTIFICATION_WEBHOOK_FORMAT`, and retries failures using `NOTIFICATION_WEBHOOK_MAX_RETRIES`
+- rule-engine policy can queue high-impact downstream actions into `approval_queue` instead of executing them immediately when rule payloads set `requires_approval`, `approval_required`, or `route_to_approval_queue`
+
+## Example: system-health-check
+
+POST `/functions/v1/system-health-check`
+
+Request:
+
+```json
+{}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "status": "healthy",
+  "checked_at": "2026-03-25T00:00:00.000Z",
+  "checks": [
+    {
+      "component": "database",
+      "status": "healthy",
+      "error_message": null
+    },
+    {
+      "component": "rule-engine-agent",
+      "status": "healthy",
+      "error_message": null
+    }
+  ]
+}
+```
+
+Notes:
+- writes one upserted status row per component into `system_health`
+- checks `agent_registry` freshness for key agents plus database, `ai_actions`, and `deal_feed` activity
+- returns `healthy`, `warning`, or `error` based on the worst component state
+
+## Example: get-operator-summary
+
+POST `/functions/v1/get-operator-summary`
+
+Request:
+
+```json
+{}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "total_active_deals": 14,
+  "total_high_priority_deals": 3,
+  "recent_notifications_count": 7,
+  "pending_retries_count": 1,
+  "latest_system_health_status": "healthy",
+  "latest_generated_reports_count": 5,
+  "latest_system_health_checked_at": "2026-03-25T00:00:00.000Z"
+}
+```
+
+Notes:
+- response shape is flat and null-safe
+- recent notifications use the last 24 hours
+- generated reports count uses the report index over the recent reporting window
+
+## Example: get-usage-summary
+
+POST `/functions/v1/get-usage-summary`
+
+Request:
+
+```json
+{}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "generated_at": "2026-03-26T00:00:00.000Z",
+  "windows": {
+    "last_24_hours": [
+      {
+        "agent_name": "rule-engine-agent",
+        "calls": 42,
+        "estimated_cost": 0
+      }
+    ],
+    "last_7_days": [
+      {
+        "agent_name": "notification-agent",
+        "calls": 210,
+        "estimated_cost": 0
+      }
+    ]
+  }
+}
+```
+
+Notes:
+- usage is aggregated from `usage_metrics`
+- `estimated_cost` uses configured per-call estimates when available and otherwise falls back to `0`, while `calls` remains the primary meter
+
+## Example: update-system-settings
+
+POST `/functions/v1/update-system-settings`
+
+Request:
+
+```json
+{
+  "system_enabled": false,
+  "note": "Temporarily disabled for maintenance."
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "settings": {
+    "setting_key": "global",
+    "system_enabled": false
+  }
+}
+```
+
+Notes:
+- updates the single `system_settings` row keyed by `global`
+- shared runtime checks this flag before agent execution and returns `503` when disabled
+
+## Example: approve-approval-queue
+
+POST `/functions/v1/approve-approval-queue`
+
+Request:
+
+```json
+{
+  "approval_id": "11111111-1111-1111-1111-111111111111",
+  "decision": "approved",
+  "operator_note": "Approved from dashboard."
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "approval": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "status": "executed"
+  },
+  "execution_result": {
+    "success": true,
+    "action": "deal-report-agent"
+  }
+}
+```
+
+Notes:
+- `decision` must be `approved` or `rejected`
+- approved requests execute the queued downstream edge function stored in `approval_queue.payload.action`
+
+## Example: cleanup
+
+POST `/functions/v1/cleanup`
+
+Request:
+
+```json
+{
+  "usage_metrics_retention_days": 30,
+  "realtime_retention_days": 7
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "cleaned_at": "2026-03-26T00:00:00.000Z",
+  "result": {
+    "usage_metrics_deleted": 10,
+    "realtime_events_deleted": 45,
+    "retry_rows_failed": 2
+  }
+}
+```
+
+Notes:
+- trims aged `usage_metrics` and `deal_feed_realtime_fallback` rows
+- marks exhausted `agent_retry_queue` rows as `failed`
+
+## Example: internal-ops-dashboard
+
+GET `/functions/v1/internal-ops-dashboard`
+
+Notes:
+- serves the lightweight internal operator UI
+- the page provides feed filtering, approval execution, outcome updates, notification filtering, health/retry/funnel summaries, usage cards, and manual triggers for health-check, cleanup, report generation, and system enable/disable
+
+## Example: allocate-capital
+
+POST `/functions/v1/allocate-capital`
+
+Request:
+
+```json
+{
+  "capital_pool": 5000000,
+  "max_deals": 3,
+  "allocation_status": "proposed",
+  "minimum_priority_score": 70
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "capital_pool": 5000000,
+  "allocation_status": "proposed",
+  "allocated_count": 3,
+  "allocations": [
+    {
+      "id": "99999999-9999-9999-9999-999999999999",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "allocated_amount": 1900000,
+      "allocation_status": "proposed",
+      "expected_return": 0.22,
+      "created_at": "2026-03-25T00:00:00.000Z",
+      "updated_at": "2026-03-25T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+Notes:
+- `capital_pool` is required and must be positive
+- eligible deals are selected from the highest `priority_score` values in `deal_feed`
+- duplicate allocations are prevented by both pre-filtering existing `capital_allocations` rows and a unique constraint on `capital_allocations.deal_id`
+- each allocation run is logged to `ai_actions` with action `capital_allocated`
+
+## Example: update-deal-outcome
+
+POST `/functions/v1/update-deal-outcome`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "outcome_type": "won",
+  "actual_return": 0.22,
+  "duration_days": 95,
+  "notes": "Approved and closed after lender diligence."
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "outcome": {
+    "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "outcome_type": "won",
+    "actual_return": 0.22,
+    "duration_days": 95,
+    "notes": "Approved and closed after lender diligence.",
+    "created_at": "2026-03-25T00:00:00.000Z"
+  },
+  "deal_performance": {
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "outcomes_recorded": 2,
+    "last_outcome_type": "won",
+    "last_actual_return": 0.22,
+    "average_actual_return": 0.19,
+    "average_duration_days": 88.5,
+    "last_outcome_recorded_at": "2026-03-25T00:00:00.000Z"
+  },
+  "scoring_feedback": {
+    "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "outcome_type": "won",
+    "adjustment_factor": 0.041,
+    "created_at": "2026-03-25T00:00:00.000Z",
+    "updated_at": "2026-03-25T00:00:00.000Z"
+  }
+}
+```
+
+Notes:
+- `deal_id` must be a valid UUID and `outcome_type` must be one of `won`, `lost`, or `in_progress`
+- each call appends a row to `deal_outcomes`, then recomputes aggregate outcome metrics in `deal_performance`
+- when `actual_return` is supplied, the function compares predicted vs actual performance, stores bounded weight adjustments in `scoring_feedback`, and keeps score and penalty multipliers within safe limits
+- each successful update is logged to `ai_actions` with action `deal_outcome_updated`
+
+## Example: get-deal-funnel
+
+POST `/functions/v1/get-deal-funnel`
+
+Request:
+
+```json
+{}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "generated_at": "2026-03-25T00:00:00.000Z",
+  "total_deals": 20,
+  "stages": [
+    {
+      "stage": "active",
+      "count": 10,
+      "conversion_rate_from_previous": null,
+      "average_time_days": 12.4
+    },
+    {
+      "stage": "reviewing",
+      "count": 7,
+      "conversion_rate_from_previous": 70,
+      "average_time_days": 8.1
+    }
+  ],
+  "conversion_rates": [
+    {
+      "from_stage": "active",
+      "to_stage": "reviewing",
+      "conversion_rate": 70
+    }
+  ]
+}
+```
+
+Notes:
+- reports the lifecycle funnel for `active`, `reviewing`, `approved`, `funded`, and `completed` deals
+- conversion rates are calculated from the immediately preceding stage
+- average time per stage is derived from `deals.created_at` plus `ai_actions` `status_transition` timestamps
+- the response is flat, JSON-safe, and intended for dashboard consumption
+
+## Example: add-deal-knowledge-link
+
+POST `/functions/v1/add-deal-knowledge-link`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "document_type": "market_report",
+  "source_ref": "knowledge://market-report-q1-2026",
+  "summary": "Quarterly market report linked to the deal."
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "id": "77777777-7777-7777-7777-777777777777",
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "document_type": "market_report",
+  "source_ref": "knowledge://market-report-q1-2026",
+  "summary": "Quarterly market report linked to the deal.",
+  "metadata": {},
+  "created_at": "2026-03-25T00:00:00.000Z"
+}
+```
+
+## Example: get-deal-reports
+
+POST `/functions/v1/get-deal-reports`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "report_type": "deal_pack",
+  "limit": 10
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "limit": 10,
+  "filters": {
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "report_type": "deal_pack",
+    "created_at": null
+  },
+  "items": [
+    {
+      "id": "88888888-8888-8888-8888-888888888888",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "report_type": "deal_pack",
+      "source_agent": "generate-deal-pack",
+      "source_action": "deal_pack_generated",
+      "created_at": "2026-03-25T00:00:00.000Z",
+      "summary": "12 Marine Parade, Kingscliff, NSW, 2487",
+      "content": {}
+    }
+  ]
+}
+```
+
+Notes:
+- defaults to most recent first
+- uses `report_index` as the stable source and falls back to legacy report `ai_actions` rows when needed
 
 ## Example: get-deal-feed
 
@@ -315,7 +745,7 @@ Notes:
 - default `limit` is `20`
 - optional filters: `score` is treated as a minimum score, `status` filters by exact lifecycle status, and `user_id` applies `user_preferences` when present
 - default sort is `priority_score desc`; ties fall back to `created_at desc`
-- `priority_score` uses simple weighted logic: base score + margin contribution - flood/open-risk penalties
+- `priority_score` uses bounded weighted logic: base score + margin contribution - flood/open-risk penalties, with optional latest `scoring_feedback.adjusted_weights` applied when feedback exists
 - archived rows are excluded unless `status` is explicitly supplied
 - each returned deal increments `deal_performance.views` and updates `last_viewed_at`
 
@@ -1021,14 +1451,25 @@ Response:
 - `/get-agent-rules`
 - `/get-deal`
 - `/get-deal-feed`
+- `/get-deal-funnel`
+- `/get-deal-reports`
 - `/get-top-deals`
+- `/allocate-capital`
 - `/get-deal-context`
 - `/get-deal-timeline`
 - `/generate-deal-report`
 - `/generate-deal-pack`
+- `/get-operator-summary`
+- `/get-usage-summary`
+- `/update-system-settings`
+- `/approve-approval-queue`
+- `/cleanup`
+- `/internal-ops-dashboard`
+- `/system-health-check`
 - `/log-communication`
 - `/notification-agent`
 - `/subscribe-deal-feed`
+- `/update-deal-outcome`
 - `/update-deal-stage`
 - `/site-intelligence-agent`
 - `/zoning-agent`
@@ -1044,6 +1485,8 @@ Response:
 - `/site-discovery-agent`
 - `/parcel-ranking-agent`
 - `/add-financial-snapshot`
+- `/add-deal-knowledge-link`
 - `/add-knowledge-document`
 - `/search-knowledge`
+- `/system-health-check`
 - `/test-agent`

@@ -10,3 +10,4 @@ This document defines:
 - development rules
 
 AI must read it and all referenced documents before performing any task.
+This startup read is mandatory for every task.

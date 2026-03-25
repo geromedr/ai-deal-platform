@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "log-communication", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "message", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
@@ -64,4 +65,5 @@ serve(async (req) => {
 
   }
 
-})
+}));
+

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type FinancialEngineRequest = {
   deal_id?: string
@@ -382,7 +383,7 @@ function calculateFeasibility(
   }
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "financial-engine-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }
@@ -924,4 +925,5 @@ serve(async (req) => {
       }
     })
   }
-})
+}));
+

@@ -6,7 +6,7 @@ IMPORTANT
 
 Any AI system assisting development in this repository must read:
 
-docs/ai-governance/AI_SYSTEM_PROMPT.md  
+docs/operations/AI_SYSTEM_PROMPT.md  
 docs/architecture/ARCHITECTURE.md  
 docs/system/AGENTS.md  
 docs/system/API.md  

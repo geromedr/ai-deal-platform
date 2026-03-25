@@ -23,10 +23,10 @@ You must operate with autonomy, but strictly within the defined governance, work
 Before performing any task:
 
 1. Read:
-   - docs/database/schema.md
+   - docs/database/SCHEMA.md
    - docs/ai-governance/SUPABASE_WORKFLOWS.md
-   - AGENT_CREATION_WORKFLOW.md
-   - AI_BUILD_RULES.md
+   - docs/ai-governance/AGENT_CREATION_WORKFLOW.md
+   - docs/ai-governance/AI_BUILD_RULES.md
 
 2. Understand:
    - existing database structure
@@ -43,7 +43,7 @@ You are authorized to create and modify database schema when required.
 
 ### Before creating new schema:
 
-1. Read docs/database/schema.md
+1. Read docs/database/SCHEMA.md
 2. Check if a suitable table already exists
 3. Prefer extending existing tables over creating new ones
 
@@ -69,7 +69,7 @@ You are authorized to create and modify database schema when required.
 
 All database schema must be documented in:
 
-docs/database/schema.md
+docs/database/SCHEMA.md
 
 After any schema change:
 
@@ -103,7 +103,7 @@ Do NOT:
 
 All agents must:
 
-- follow AGENT_CREATION_WORKFLOW.md
+- follow docs/ai-governance/AGENT_CREATION_WORKFLOW.md
 - accept structured inputs (deal_id, address, etc.)
 - return consistent JSON responses
 - integrate into the broader system (not operate in isolation)

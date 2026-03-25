@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import {
   computeCompositeDealScore,
   parseNumber,
@@ -28,7 +29,7 @@ function parseCreatedAt(value: unknown) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "generate-deal-report" }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -198,11 +199,24 @@ serve(async (req) => {
       agent: "generate-deal-report",
       action: "weekly_deal_report_generated",
       payload: report,
-      source: "deal_feed",
     });
 
     if (logError) {
       throw new Error(logError.message);
+    }
+
+    const { error: indexError } = await supabase.from("report_index").insert({
+      deal_id: null,
+      report_type: "weekly_report",
+      source_agent: "generate-deal-report",
+      source_action: "weekly_deal_report_generated",
+      payload: {
+        report,
+      },
+    });
+
+    if (indexError) {
+      throw new Error(indexError.message);
     }
 
     return jsonResponse({
@@ -213,4 +227,5 @@ serve(async (req) => {
     console.error("generate-deal-report failed", error);
     return jsonResponse({ error: getErrorMessage(error) }, 500);
   }
-});
+}));
+

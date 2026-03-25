@@ -36,14 +36,47 @@ Processes inbound emails, updates deal communications, and triggers downstream a
 ### notification-agent
 Evaluates each `deal_feed` update against `user_preferences`, suppresses low-priority or throttled notifications, writes per-user `notification_decision` and `deal_alert` audit rows to `ai_actions`, and enforces max one notification per deal per user within the configured throttle window. For `high_priority` deals it also sends external email and webhook alerts, includes score, summary, and deal reference links, retries webhook delivery on failure, and logs delivery outcomes in `ai_actions`.
 
+### system-health-check
+Checks `agent_registry`, database connectivity, `ai_actions`, and `deal_feed` activity for key components such as `rule-engine-agent`, `notification-agent`, `site-intelligence-agent`, `site-discovery-agent`, and `get-deal-feed`, then upserts the latest results into `system_health`.
+
+### get-operator-summary
+Returns a flat operator-facing platform summary covering active deals, high-priority deals, recent notifications, pending retries, latest system health status, and recent generated report counts using null-safe aggregate queries.
+
+### get-usage-summary
+Returns per-agent usage and estimated-cost aggregates for the last 24 hours and last 7 days from `usage_metrics`.
+
+### update-system-settings
+Updates the global `system_settings` kill switch row so agents can be enabled or disabled safely at runtime, and logs the change to `ai_actions`.
+
+### approve-approval-queue
+Reviews pending `approval_queue` items, marks them approved or rejected, executes the queued downstream edge function when approved, and logs the operator decision to `ai_actions`.
+
+### cleanup
+Runs bounded maintenance cleanup across `usage_metrics`, `deal_feed_realtime_fallback`, and exhausted `agent_retry_queue` rows, then logs the cleanup run to `ai_actions`.
+
+### internal-ops-dashboard
+Serves a lightweight internal operator web UI for the deal feed, approvals, notifications, usage summary, system health, retry queue, funnel metrics, and manual control triggers.
+
 ### get-top-deals
 Returns the top-ranked deals using `priority_score` plus engagement metrics from `deal_performance`, defaulting to composite-score ordering and a top-10 result set.
+
+### allocate-capital
+Assigns capital across the highest-priority deals, prevents duplicate allocations through `capital_allocations`, and logs each allocation run to `ai_actions`.
+
+### update-deal-outcome
+Records deal outcomes in `deal_outcomes`, synchronizes aggregated outcome metrics back into `deal_performance`, persists bounded scoring feedback into `scoring_feedback`, and logs the update to `ai_actions`.
+
+### get-deal-funnel
+Returns deal lifecycle counts, stage-to-stage conversion rates, and average time-in-stage metrics for `active`, `reviewing`, `approved`, `funded`, and `completed` deals.
 
 ### generate-deal-report
 Builds a weekly structured JSON summary of new deals, improved deals, and top deals, then logs the generated report to `ai_actions`.
 
 ### generate-deal-pack
 Builds a structured investor-facing JSON deal pack containing deal summary, financials, risks, and comparable context, with render hints so the output can later be converted to PDF, then logs generation in `ai_actions`.
+
+### get-deal-reports
+Returns indexed deal reports, deal packs, and weekly reports with optional `deal_id`, `report_type`, and `created_at` filters, defaulting to most recent first and falling back to legacy `ai_actions` report records when needed.
 
 ### subscribe-deal-feed
 Returns the Realtime subscription contract for `deal_feed`, exposing the primary `deal-feed` broadcast topic plus a postgres-changes fallback channel and the caller's optional `user_preferences`.
@@ -111,6 +144,9 @@ Performs detailed feasibility calculations using yield outputs, explicit compara
 ### event-dispatcher
 A shared helper used by stage agents to build standardized event context, derive a deterministic context hash from `score`, `zoning`, `yield`, and `financials`, log stage-completion events, suppress only exact-context duplicate and in-progress processing in `ai_actions`, invoke `rule-engine-agent`, and fall back to legacy `deal_id` and event dedupe only when older un-hashed records are the only history available.
 
+### agent-runtime
+A shared helper that performs pre-execution required-input validation, updates `agent_registry`, and writes standardized `agent_execution` audit rows to `ai_actions` with success state, execution time, and error context.
+
 ### action-layer-compat
 A shared normalization helper that maps legacy hosted `tasks`, `risks`, and `agent_action_rules` shapes into the current structures expected by the orchestration layer and retries writes with legacy column mappings when required.
 
@@ -122,6 +158,9 @@ Stores vector-searchable supporting documents.
 ### search-knowledge
 Searches stored knowledge chunks for retrieval-augmented reasoning.
 
+### add-deal-knowledge-link
+Attaches lightweight knowledge and document references to a deal through `deal_knowledge_links`, then logs the attachment to `ai_actions`.
+
 ## Deal Context
 
 ### get-deal
@@ -131,7 +170,7 @@ Fetches core deal data and related records.
 Retrieves contextual information across deal records.
 
 ### get-deal-feed
-Returns recent `deal_feed` entries with optional minimum score, status, and `user_id` preference filtering, joined to `deals` for flat address, suburb, strategy, and stage fields, while using the persisted or computed weighted `priority_score`.
+Returns recent `deal_feed` entries with optional minimum score, status, and `user_id` preference filtering, joined to `deals` for flat address, suburb, strategy, and stage fields, while using the persisted or computed weighted `priority_score` plus the latest bounded `scoring_feedback` adjustments when available.
 
 ## Rules
 

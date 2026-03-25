@@ -85,11 +85,83 @@ Fields:
 - views (integer, default `0`)
 - notifications_sent (integer, default `0`)
 - actions_taken (integer, default `0`)
+- outcomes_recorded (integer, default `0`)
+- last_outcome_type (text)
+- last_actual_return (numeric)
+- average_actual_return (numeric)
+- average_duration_days (numeric)
+- last_outcome_recorded_at (timestamptz)
 - last_viewed_at (timestamptz)
 - created_at (timestamptz)
+- updated_at (timestamptz)
 
 Indexes:
 - deal_id
+
+---
+
+## capital_allocations
+
+Capital allocation records for surfaced deals. One row per allocated deal.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- allocated_amount (numeric, required, check `>= 0`)
+- allocation_status (text, default `proposed`; allowed values `proposed`, `committed`, `deployed`)
+- expected_return (numeric)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Unique:
+- (deal_id)
+
+Indexes:
+- allocation_status + updated_at
+- deal_id + created_at
+
+---
+
+## deal_outcomes
+
+Outcome tracking records for deals. Multiple outcome snapshots may be recorded over time for the same deal.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- outcome_type (text, required; allowed values `won`, `lost`, `in_progress`)
+- actual_return (numeric)
+- duration_days (integer, check `>= 0` when present)
+- notes (text)
+- created_at (timestamptz)
+
+Indexes:
+- outcome_type + created_at
+- deal_id + created_at
+
+---
+
+## scoring_feedback
+
+Adaptive scoring audit log that stores bounded weighting adjustments derived from predicted vs actual outcomes.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- outcome_type (text, required; allowed values `won`, `lost`, `in_progress`)
+- predicted_priority_score (numeric)
+- predicted_return (numeric)
+- actual_return (numeric)
+- adjustment_factor (numeric, default `0`)
+- previous_weights (jsonb)
+- adjusted_weights (jsonb)
+- notes (text)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Indexes:
+- created_at
+- deal_id + created_at
 
 ---
 
@@ -261,6 +333,158 @@ Fields:
 - action (text, required)
 - payload (jsonb)
 - source (text)
+- execution_time_ms (integer)
+- success (boolean)
+- error_context (jsonb)
+- created_at (timestamptz)
+
+---
+
+## agent_registry
+
+Registry of edge-function execution state for all agents. One row per `agent_name`.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- agent_name (text, required, unique)
+- version (text, required)
+- status (text, required)
+- last_run (timestamptz)
+- last_error (text)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+---
+
+## system_health
+
+System-wide health status snapshot for core components.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- component (text, required, unique)
+- status (text, required)
+- last_checked (timestamptz)
+- error_message (text)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+---
+
+## usage_metrics
+
+Execution metering records used for agent usage and estimated-cost reporting.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- agent_name (text, required)
+- calls (integer, default `1`)
+- estimated_cost (numeric, default `0`)
+- timestamp (timestamptz, default `now()`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Indexes:
+- agent_name + timestamp
+- timestamp
+
+---
+
+## system_settings
+
+Global operator safety settings, including the system kill switch.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- setting_key (text, unique, default `global`)
+- system_enabled (boolean, default `true`)
+- metadata (jsonb)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+---
+
+## agent_rate_limits
+
+Per-agent execution safety limits used by the shared runtime.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- agent_name (text, unique, required)
+- max_calls_per_hour (integer, default `120`)
+- enabled (boolean, default `true`)
+- metadata (jsonb)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Indexes:
+- enabled + max_calls_per_hour
+
+---
+
+## agent_retry_queue
+
+Queued retry work for failed agent side effects that should be retried without creating infinite loops.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- agent_name (text, required)
+- operation (text, required)
+- dedupe_key (text, required, unique)
+- payload (jsonb)
+- status (text, default `queued`)
+- retry_count (integer, default `0`)
+- max_retries (integer, default `3`)
+- last_error (text)
+- next_retry_at (timestamptz)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+---
+
+## approval_queue
+
+Approval workflow buffer for policy-gated high-impact actions. One row per deduplicated approval request.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id, nullable)
+- approval_type (text, required)
+- status (text, default `pending`)
+- requested_by_agent (text, required)
+- payload (jsonb)
+- dedupe_key (text, required, unique)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+---
+
+## deal_knowledge_links
+
+Lightweight references linking a deal to attached knowledge or external document context.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- document_type (text, required)
+- source_ref (text, required)
+- summary (text)
+- metadata (jsonb)
+- created_at (timestamptz)
+
+---
+
+## report_index
+
+Stable index of generated deal reports, deal packs, and weekly reports for retrieval endpoints.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id, nullable)
+- report_type (text, required)
+- source_agent (text, required)
+- source_action (text, required)
+- payload (jsonb)
 - created_at (timestamptz)
 
 ---

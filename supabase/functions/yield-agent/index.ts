@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type YieldRequest = {
   deal_id?: string
@@ -64,7 +65,7 @@ function buildHeaders(serviceKey: string) {
   }
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "yield-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }
@@ -228,4 +229,5 @@ serve(async (req) => {
       error: error instanceof Error ? error.message : "Unknown error"
     }, 500)
   }
-})
+}));
+

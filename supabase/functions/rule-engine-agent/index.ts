@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { computePriorityScore } from "../_shared/deal-feed.ts";
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import {
+  queueRetryOperation,
+  runWithRetries,
+} from "../_shared/agent-resilience.ts";
 
 type RuleEngineEvent =
   | "post-ranking"
@@ -91,8 +96,16 @@ type ParsedConditionClause = {
   rawValue: string;
 };
 
+type ApprovalPolicy = {
+  required: boolean;
+  approvalType: string;
+  dedupeKey: string;
+};
+
 const DEFAULT_REPORT_TRIGGER_SCORE_THRESHOLD = 50;
 const DEFAULT_AGENT_NAME = "rule-engine-agent";
+const DEFAULT_RETRY_ATTEMPTS = 3;
+const DEFAULT_RETRY_DELAY_MS = 300;
 const DEAL_FEED_SUPPORTED_EVENTS = new Set<RuleEngineEvent>([
   "post-ranking",
   "post-financial",
@@ -674,6 +687,73 @@ function buildDefaultRules(event: RuleEngineEvent): RuleDefinition[] {
   }];
 }
 
+function buildApprovalPolicy(
+  dealId: string,
+  event: RuleEngineEvent,
+  evaluation: EvaluatedRule,
+) : ApprovalPolicy {
+  const payload = isRecord(evaluation.rule.payload) ? evaluation.rule.payload : {};
+  const approvalRequired = payload.requires_approval === true ||
+    payload.approval_required === true ||
+    payload.route_to_approval_queue === true;
+  const approvalType = typeof payload.approval_type === "string" &&
+      payload.approval_type.trim().length > 0
+    ? payload.approval_type.trim()
+    : evaluation.rule.action;
+
+  return {
+    required: approvalRequired,
+    approvalType,
+    dedupeKey:
+      `${dealId}:${event}:${approvalType}:${evaluation.source_rule_id}`,
+  };
+}
+
+async function queueApprovalRequest(
+  supabase: any,
+  input: {
+    deal_id: string;
+    event: RuleEngineEvent;
+    evaluation: EvaluatedRule;
+    context: EvaluationContext;
+    actionPayload: Record<string, unknown>;
+    approvalPolicy: ApprovalPolicy;
+  },
+) {
+  const { data, error } = await supabase
+    .from("approval_queue")
+    .upsert(
+      {
+        deal_id: input.deal_id,
+        approval_type: input.approvalPolicy.approvalType,
+        status: "pending",
+        requested_by_agent: DEFAULT_AGENT_NAME,
+        dedupe_key: input.approvalPolicy.dedupeKey,
+        payload: {
+          event: input.event,
+          source_rule_id: input.evaluation.source_rule_id,
+          rule_name: input.evaluation.rule.name ?? null,
+          condition: input.evaluation.rule.condition,
+          action: input.evaluation.rule.action,
+          priority: input.evaluation.rule.priority ?? 100,
+          action_payload: input.actionPayload,
+          context: input.context,
+        },
+      },
+      {
+        onConflict: "dedupe_key",
+      },
+    )
+    .select("id, deal_id, approval_type, status, requested_by_agent, created_at, updated_at")
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
 function isLowRiskContext(context: EvaluationContext) {
   const normalized = context.flood_risk?.trim().toLowerCase() ?? "";
   return normalized.includes("low") && !normalized.includes("medium") &&
@@ -1058,20 +1138,27 @@ async function logAudit(
   }
 }
 
-serve(async (req) => {
-  if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
-  }
+serve(
+  createAgentHandler(
+    {
+      agentName: DEFAULT_AGENT_NAME,
+      requiredFields: [
+        { name: "deal_id", type: "string", uuid: true },
+        { name: "event", type: "string" },
+      ],
+    },
+    async (req) => {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (!supabaseUrl) {
+        return jsonResponse({ error: "SUPABASE_URL not set" }, 500);
+      }
+      if (!serviceKey) {
+        return jsonResponse({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }, 500);
+      }
 
-  if (!supabaseUrl) return jsonResponse({ error: "SUPABASE_URL not set" }, 500);
-  if (!serviceKey) {
-    return jsonResponse({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }, 500);
-  }
-
-  try {
+      try {
     const authorizationHeader = req.headers.get("Authorization");
     const payload = await req.json() as RuleEngineRequest;
     const deal_id =
@@ -1207,6 +1294,53 @@ serve(async (req) => {
         ...evaluation.rule.payload,
       };
 
+      const approvalPolicy = buildApprovalPolicy(deal_id, event, evaluation);
+      if (approvalPolicy.required) {
+        try {
+          const approvalRequest = await queueApprovalRequest(supabase, {
+            deal_id,
+            event,
+            evaluation,
+            context,
+            actionPayload,
+            approvalPolicy,
+          });
+
+          executed_actions.push({
+            source_rule_id: evaluation.source_rule_id,
+            event: evaluation.rule.event,
+            condition: evaluation.rule.condition,
+            action: evaluation.rule.action,
+            priority: evaluation.rule.priority ?? 100,
+            success: true,
+            skipped: true,
+            reason: `Queued for approval as ${approvalPolicy.approvalType}`,
+            error: null,
+            approval_required: true,
+            approval_request: approvalRequest,
+          });
+        } catch (error) {
+          executed_actions.push({
+            source_rule_id: evaluation.source_rule_id,
+            event: evaluation.rule.event,
+            condition: evaluation.rule.condition,
+            action: evaluation.rule.action,
+            priority: evaluation.rule.priority ?? 100,
+            success: false,
+            skipped: true,
+            reason: `Failed to queue approval for ${approvalPolicy.approvalType}`,
+            error: getErrorMessage(error),
+            approval_required: true,
+          });
+          warnings.push(
+            `Failed to queue approval for ${evaluation.rule.action}: ${
+              getErrorMessage(error)
+            }`,
+          );
+        }
+        continue;
+      }
+
       const duplicateActionResult = await getDuplicateActionResult(
         supabaseUrl,
         serviceKey,
@@ -1313,15 +1447,50 @@ serve(async (req) => {
       const matchedEvaluations = evaluations.filter((evaluation) =>
         evaluation.matched
       );
-      const dealFeedWrite = await upsertDealFeedEntry(
-        supabase,
-        context,
-        matchedEvaluations,
-        executed_actions,
+      const dealFeedRetry = await runWithRetries(
+        () =>
+          upsertDealFeedEntry(
+            supabase,
+            context,
+            matchedEvaluations,
+            executed_actions,
+          ),
+        {
+          supabase,
+          agentName: DEFAULT_AGENT_NAME,
+          dealId: deal_id,
+          action: "deal_feed_retry",
+          source: "deal_feed",
+          maxAttempts: DEFAULT_RETRY_ATTEMPTS,
+          delayMs: DEFAULT_RETRY_DELAY_MS,
+          dedupeKey: `${deal_id}:${event}:deal_feed`,
+          payload: { event },
+        },
       );
 
-      if (dealFeedWrite.attempted && dealFeedWrite.inserted) {
-        deal_feed_entry = dealFeedWrite.entry ?? null;
+      if (dealFeedRetry.success) {
+        const dealFeedWrite = dealFeedRetry.value;
+        if (dealFeedWrite && dealFeedWrite.attempted && dealFeedWrite.inserted) {
+          deal_feed_entry = dealFeedWrite.entry ?? null;
+        }
+      } else {
+        await queueRetryOperation(supabase, {
+          agentName: DEFAULT_AGENT_NAME,
+          operation: "deal_feed_write",
+          dedupeKey: `${deal_id}:${event}:deal_feed_write`,
+          payload: {
+            deal_id,
+            event,
+            context,
+          },
+          maxRetries: DEFAULT_RETRY_ATTEMPTS,
+          lastError: dealFeedRetry.error ?? "deal feed write failed",
+        });
+        warnings.push(
+          `Failed to persist deal feed entry after retries: ${
+            dealFeedRetry.error ?? "unknown error"
+          }`,
+        );
       }
     } catch (error) {
       warnings.push(
@@ -1330,27 +1499,76 @@ serve(async (req) => {
     }
 
     if (deal_feed_entry) {
-      const notificationAgentResult = await invokeNotificationAgent(
-        supabaseUrl,
-        serviceKey,
-        authorizationHeader,
-        deal_feed_entry,
+      const notificationRetry = await runWithRetries(
+        () =>
+          invokeNotificationAgent(
+            supabaseUrl,
+            serviceKey,
+            authorizationHeader,
+            deal_feed_entry,
+          ),
+        {
+          supabase,
+          agentName: DEFAULT_AGENT_NAME,
+          dealId: deal_id,
+          action: "notification_retry",
+          source: "notification-agent",
+          maxAttempts: DEFAULT_RETRY_ATTEMPTS,
+          delayMs: DEFAULT_RETRY_DELAY_MS,
+          dedupeKey: `${deal_id}:${event}:notification`,
+          payload: { event },
+        },
       );
 
-      notification_result = {
-        success: notificationAgentResult.success,
-        skipped: notificationAgentResult.skipped ?? false,
-        reason: notificationAgentResult.reason ?? null,
-        error: notificationAgentResult.error ?? null,
-        data: notificationAgentResult.data ?? null,
-      };
+      if (notificationRetry.success) {
+        const notificationAgentResult = notificationRetry.value;
+        if (!notificationAgentResult) {
+          throw new Error("notification-agent retry returned no result");
+        }
+        notification_result = {
+          success: notificationAgentResult.success,
+          skipped: notificationAgentResult.skipped ?? false,
+          reason: notificationAgentResult.reason ?? null,
+          error: notificationAgentResult.error ?? null,
+          data: notificationAgentResult.data ?? null,
+        };
 
-      if (!notificationAgentResult.success) {
+        if (!notificationAgentResult.success) {
+          warnings.push(
+            `Failed to trigger notification-agent: ${
+              notificationAgentResult.error ?? "unknown error"
+            }`,
+          );
+        }
+      } else {
+        notification_result = {
+          success: false,
+          skipped: false,
+          reason: "Notification failed after retries; priority downgraded",
+          error: notificationRetry.error ?? "notification retry exhausted",
+          downgraded_priority: true,
+        };
         warnings.push(
-          `Failed to trigger notification-agent: ${
-            notificationAgentResult.error ?? "unknown error"
+          `Failed to trigger notification-agent after retries: ${
+            notificationRetry.error ?? "unknown error"
           }`,
         );
+
+        try {
+          await logAudit(supabase, deal_id, "notification_priority_downgraded", {
+            event,
+            deal_feed_entry,
+            retry_attempts: notificationRetry.attempts,
+            fallback: "priority_downgraded",
+            error: notificationRetry.error ?? null,
+          });
+        } catch (error) {
+          warnings.push(
+            `Failed to log notification downgrade fallback: ${
+              getErrorMessage(error)
+            }`,
+          );
+        }
       }
     }
 
@@ -1394,8 +1612,11 @@ serve(async (req) => {
       notification_result,
       warnings,
     });
-  } catch (error) {
-    console.error("rule-engine-agent failed", error);
-    return jsonResponse({ error: getErrorMessage(error) }, 500);
-  }
-});
+      } catch (error) {
+        console.error("rule-engine-agent failed", error);
+        return jsonResponse({ error: getErrorMessage(error) }, 500);
+      }
+    },
+  ),
+);
+

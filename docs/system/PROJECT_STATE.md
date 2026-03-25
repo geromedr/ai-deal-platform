@@ -45,6 +45,7 @@ Deal Management
 - subscribe-deal-feed
 - deal-report-agent now builds structured investment summaries from deal, context, planning, yield, financial snapshot, comparable sales, and ranking data with fallback-safe human-readable output plus direct database fallbacks when optional reads or logging fail
 - generate-deal-pack now builds structured investor deal-pack JSON with summary, financials, risks, comparable context, and PDF-ready render hints
+- internal-ops-dashboard now serves a lightweight operator UI for feed review, approvals, notifications, usage, health, retry queues, funnel metrics, and manual control actions
 
 Testing
 - test-agent
@@ -65,7 +66,20 @@ Testing
 - user preferences are now modeled in `user_preferences`, allowing feed filtering and per-user notification matching with null-safe defaults when no preference row exists
 - notification-agent now evaluates all users against `user_preferences`, suppresses low-priority alerts unless explicitly allowed, throttles notifications per deal per user per timeframe, and logs per-user decisions into `ai_actions`
 - notification-agent now sends external high-priority email and webhook alerts, includes deal summary, score, and reference links, retries webhook delivery, and logs delivery outcomes in `ai_actions`
+- all edge functions now pass through a shared runtime that validates required inputs, updates `agent_registry`, and writes standardized `agent_execution` audit rows with `execution_time_ms`, `success`, and `error_context`
+- system health monitoring now persists database, agent, and recent-activity checks into `system_health` via `system-health-check`
+- shared runtime now enforces the global `system_settings.system_enabled` kill switch, records per-call `usage_metrics`, and applies per-agent hourly limits from `agent_rate_limits`
+- rule-engine-agent now retries failed notification and deal-feed side effects, downgrades notification priority on exhausted notification retries, and queues failed feed writes in `agent_retry_queue` with dedupe protection
+- operator summary support now exposes `get-operator-summary` for flat platform-level counts covering active deals, high-priority deals, notifications, retries, system health, and recent reports
+- operator tooling now includes `get-usage-summary`, `update-system-settings`, `approve-approval-queue`, and `cleanup` for cost visibility, kill-switch control, approval execution, and bounded maintenance
+- policy-gated high-impact rule actions can now be routed into `approval_queue` with deduplicated approval requests instead of executing immediately
+- deal knowledge references can now be attached through `deal_knowledge_links` via `add-deal-knowledge-link`
+- generated deal reports, packs, and weekly summaries are now indexed in `report_index` and retrievable through `get-deal-reports`
 - deal performance metrics are now tracked in `deal_performance`, with `get-deal-feed`, `notification-agent`, and `create-task` incrementing views, notifications, and action counts
+- capital allocation support now persists `capital_allocations`, exposes `allocate-capital`, assigns capital across top-priority deals, and logs each allocation run to `ai_actions`
+- deal outcome tracking now persists `deal_outcomes`, updates aggregate outcome metrics on `deal_performance`, and logs final outcome updates through `update-deal-outcome`
+- adaptive scoring feedback now stores bounded predicted-vs-actual weight adjustments in `scoring_feedback` and applies the latest feedback weights inside `get-deal-feed` priority scoring
+- deal funnel analytics now exposes `get-deal-funnel` for lifecycle counts, conversion rates, and average stage durations across `active`, `reviewing`, `approved`, `funded`, and `completed`
 - rule-engine-agent now auto-creates duplicate-safe `Prepare lender pack` and `Re-evaluate feasibility` tasks when high-priority low-risk or significant-improvement conditions are met
 - get-top-deals now ranks deals by composite score using persisted `priority_score` plus `deal_performance` engagement
 - generate-deal-report now produces weekly structured JSON summaries for new, improved, and top deals and logs each report to `ai_actions`

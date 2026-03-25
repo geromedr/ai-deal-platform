@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type DealRecord = {
   id: string
@@ -372,7 +373,7 @@ function buildFallbackSummary(report: StructuredReport) {
   ].join(" ")
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "deal-report-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }
@@ -901,6 +902,27 @@ ${JSON.stringify(report, null, 2)}
       addWarning("deal-report-agent", "Failed to persist action log", getErrorMessage(error))
     }
 
+    try {
+      const { error: reportIndexError } = await supabase.from("report_index").insert({
+        deal_id,
+        report_type: "deal_report",
+        source_agent: "deal-report-agent",
+        source_action: "investment_report_generated",
+        payload: {
+          report,
+          human_readable_summary: humanReadableSummary,
+          summary_source: summarySource,
+          warnings
+        }
+      })
+
+      if (reportIndexError) {
+        addWarning("deal-report-agent", "Failed to persist report index", getErrorMessage(reportIndexError))
+      }
+    } catch (error) {
+      addWarning("deal-report-agent", "Failed to persist report index", getErrorMessage(error))
+    }
+
     console.log("deal-report-agent processing complete", {
       deal_id,
       recommendation: report.recommendation,
@@ -957,4 +979,5 @@ ${JSON.stringify(report, null, 2)}
       }
     })
   }
-})
+}));
+

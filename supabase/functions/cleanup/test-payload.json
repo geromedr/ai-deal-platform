@@ -1,0 +1,4 @@
+{
+  "usage_metrics_retention_days": 30,
+  "realtime_retention_days": 7
+}

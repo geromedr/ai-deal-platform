@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "add-financial-snapshot", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
   try {
 
     const { deal_id, gdv, tdc } = await req.json()
@@ -40,4 +41,5 @@ serve(async (req) => {
     })
 
   }
-})
+}));
+

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type SiteIntelligenceRequest = {
   deal_id?: string
@@ -572,7 +573,7 @@ async function logPipeline(
   if (error) throw new Error(`Failed to log pipeline: ${getErrorMessage(error)}`)
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "site-intelligence-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "address", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }
@@ -1372,4 +1373,5 @@ serve(async (req) => {
       error: getErrorMessage(error)
     }, 500)
   }
-})
+}));
+

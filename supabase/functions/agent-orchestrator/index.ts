@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import {
   insertRiskWithCompatibility,
   insertTaskWithCompatibility
@@ -52,7 +53,7 @@ function normaliseDecision(payload: Record<string, unknown>) {
   throw new Error("Unable to determine agent action payload")
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "agent-orchestrator", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "aiDecision", type: "object" }] }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }
@@ -230,4 +231,5 @@ serve(async (req) => {
       error: error instanceof Error ? error.message : "Unknown error"
     }, 500)
   }
-})
+}));
+

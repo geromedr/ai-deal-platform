@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "ai-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "prompt", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
     return new Response(
       JSON.stringify({ error: "Method not allowed" }),
@@ -214,4 +215,5 @@ ${formattedKnowledge}
       }
     )
   }
-})
+}));
+

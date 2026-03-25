@@ -2,7 +2,7 @@
 
 Referenced by:
 
-docs/ai-governance/AI_SYSTEM_PROMPT.md  
+docs/operations/AI_SYSTEM_PROMPT.md  
 docs/ai-governance/DEVELOPMENT_AUTOMATION_WORKFLOW.md  
 
 ## Purpose

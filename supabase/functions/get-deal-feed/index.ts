@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import {
   computePriorityScore,
   getMarginFromFeedMetadata,
@@ -36,6 +37,22 @@ function getErrorMessage(error: unknown) {
   return "Unknown error";
 }
 
+function isMissingHostedTable(error: { code?: string | null; message?: string | null }, tableName: string) {
+  const code = typeof error.code === "string" ? error.code : "";
+  const message = typeof error.message === "string" ? error.message : "";
+
+  return code === "PGRST205" && message.includes(`public.${tableName}`);
+}
+
+function isMissingColumnError(error: { message?: string | null } | null | undefined, column: string) {
+  const message = typeof error?.message === "string" ? error.message : "";
+  return message.includes(`Could not find the '${column}' column`) ||
+    message.includes(`.${column} does not exist`) ||
+    message.includes(`column ${column} does not exist`) ||
+    message.includes(`column \"${column}`) ||
+    message.includes(`column \"${column}\" does not exist`);
+}
+
 function clampLimit(value: unknown) {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_LIMIT;
@@ -63,7 +80,7 @@ function isUuid(value: string) {
   );
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "get-deal-feed" }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -110,6 +127,8 @@ serve(async (req) => {
       preferred_strategy?: string | null;
       notification_level?: string | null;
     } | null = null;
+    let scoringWeights: Record<string, unknown> | null = null;
+    const warnings: string[] = [];
 
     if (userId) {
       const { data: preferenceRow, error: preferenceError } = await supabase
@@ -123,6 +142,27 @@ serve(async (req) => {
       }
 
       userPreferences = preferenceRow ?? null;
+    }
+
+    const { data: latestFeedback, error: feedbackError } = await supabase
+      .from("scoring_feedback")
+      .select("adjusted_weights, created_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (feedbackError) {
+      if (isMissingHostedTable(feedbackError, "scoring_feedback")) {
+        warnings.push(
+          "scoring_feedback table is not available in the hosted schema yet; default priority weights were used.",
+        );
+      } else {
+        throw new Error(feedbackError.message);
+      }
+    }
+
+    if (isRecord(latestFeedback?.adjusted_weights)) {
+      scoringWeights = latestFeedback.adjusted_weights;
     }
 
     const effectiveMinScore = userPreferences?.min_score ?? minScore;
@@ -207,12 +247,40 @@ serve(async (req) => {
         throw new Error(siteIntelligenceResult.error.message);
       }
 
+      let resolvedRisks = risksResult;
       if (risksResult.error) {
-        throw new Error(risksResult.error.message);
+        if (isMissingColumnError(risksResult.error, "status")) {
+          const legacyRisksResult = await supabase
+            .from("risks")
+            .select("deal_id, severity")
+            .in("deal_id", dealIds);
+
+          if (legacyRisksResult.error) {
+            throw new Error(legacyRisksResult.error.message);
+          }
+
+          resolvedRisks = legacyRisksResult;
+        } else {
+          throw new Error(risksResult.error.message);
+        }
       }
 
+      let resolvedDeals = dealsResult;
       if (dealsResult.error) {
-        throw new Error(dealsResult.error.message);
+        if (isMissingColumnError(dealsResult.error, "metadata")) {
+          const legacyDealsResult = await supabase
+            .from("deals")
+            .select("id, address, suburb, stage, strategy")
+            .in("id", dealIds);
+
+          if (legacyDealsResult.error) {
+            throw new Error(legacyDealsResult.error.message);
+          }
+
+          resolvedDeals = legacyDealsResult;
+        } else {
+          throw new Error(dealsResult.error.message);
+        }
       }
 
       for (const row of financialsResult.data ?? []) {
@@ -242,7 +310,7 @@ serve(async (req) => {
         );
       }
 
-      for (const row of risksResult.data ?? []) {
+      for (const row of resolvedRisks.data ?? []) {
         if (typeof row.deal_id !== "string") continue;
         const existing = risksByDeal.get(row.deal_id) ?? [];
         existing.push({
@@ -252,7 +320,7 @@ serve(async (req) => {
         risksByDeal.set(row.deal_id, existing);
       }
 
-      for (const row of dealsResult.data ?? []) {
+      for (const row of resolvedDeals.data ?? []) {
         if (typeof row.id !== "string") continue;
         dealsById.set(row.id, row as Record<string, unknown>);
       }
@@ -275,6 +343,7 @@ serve(async (req) => {
         margin,
         floodRisk,
         risks,
+        weights: scoringWeights,
       });
       const priorityScore = parseNumber(row.priority_score) ??
         computedPriorityScore;
@@ -313,7 +382,6 @@ serve(async (req) => {
       });
     }
 
-    const warnings: string[] = [];
     const visibleItems = items.slice(0, limit);
 
     for (const item of visibleItems) {
@@ -347,4 +415,5 @@ serve(async (req) => {
     console.error("get-deal-feed failed", error);
     return jsonResponse({ error: getErrorMessage(error) }, 500);
   }
-});
+}));
+

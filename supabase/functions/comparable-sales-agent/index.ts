@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type DealRow = {
   id: string
@@ -86,7 +87,7 @@ function getErrorMessage(error: unknown) {
   }
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "comparable-sales-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }
@@ -356,10 +357,12 @@ Return JSON in this exact shape:
       error: getErrorMessage(error)
     }, 500)
   }
-})
+}));
 
 function extractSuburbFromAddress(address: string) {
   const parts = address.split(",").map((part) => part.trim()).filter(Boolean)
   if (parts.length < 2) return ""
   return parts[parts.length - 2] || ""
 }
+
+

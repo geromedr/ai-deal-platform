@@ -1,6 +1,7 @@
-import { serve } from "https://deno.land/std/http/server.ts"
+import { serve } from "https://deno.land/std/http/server.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "fsr-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "address", type: "string" }] }, async (req) => {
 
   try {
 
@@ -94,4 +95,5 @@ serve(async (req) => {
 
   }
 
-})
+}));
+

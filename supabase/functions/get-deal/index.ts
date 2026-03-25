@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
@@ -9,7 +10,7 @@ if (!serviceKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY not set")
 
 const supabase = createClient(supabaseUrl, serviceKey)
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "get-deal", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
 
   if (req.method !== "POST") {
     return new Response(
@@ -103,4 +104,5 @@ serve(async (req) => {
 
   }
 
-})
+}));
+

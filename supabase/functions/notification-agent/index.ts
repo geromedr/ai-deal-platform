@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import {
   classifyNotificationType,
   computePriorityScore,
@@ -665,20 +666,29 @@ async function sendWebhookAlert(
   };
 }
 
-serve(async (req) => {
-  if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
-  }
+serve(
+  createAgentHandler(
+    {
+      agentName: DEFAULT_AGENT_NAME,
+      requiredFields: [
+        { name: "deal_feed_id", type: "string", uuid: true },
+        { name: "deal_id", type: "string", uuid: true },
+        { name: "trigger_event", type: "string" },
+        { name: "summary", type: "string" },
+      ],
+    },
+    async (req) => {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL");
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (!supabaseUrl) {
+        return jsonResponse({ error: "SUPABASE_URL not set" }, 500);
+      }
+      if (!serviceKey) {
+        return jsonResponse({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }, 500);
+      }
 
-  if (!supabaseUrl) return jsonResponse({ error: "SUPABASE_URL not set" }, 500);
-  if (!serviceKey) {
-    return jsonResponse({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }, 500);
-  }
-
-  try {
+      try {
     const payload = await req.json() as NotificationAgentRequest;
     const deal_feed_id = typeof payload.deal_feed_id === "string"
       ? payload.deal_feed_id.trim()
@@ -964,8 +974,11 @@ serve(async (req) => {
       deliveries,
       warnings,
     });
-  } catch (error) {
-    console.error("notification-agent failed", error);
-    return jsonResponse({ error: getErrorMessage(error) }, 500);
-  }
-});
+      } catch (error) {
+        console.error("notification-agent failed", error);
+        return jsonResponse({ error: getErrorMessage(error) }, 500);
+      }
+    },
+  ),
+);
+

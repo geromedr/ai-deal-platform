@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "add-knowledge-document", requiredFields: [{ name: "source_name", type: "string" }, { name: "content", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 })
   }
@@ -66,4 +67,5 @@ serve(async (req) => {
 
   }
 
-})
+}));
+

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "test-agent" }, async (req) => {
   if (req.method !== "POST") {
     return new Response(
       JSON.stringify({ error: "Method not allowed" }),
@@ -47,4 +48,5 @@ serve(async (req) => {
       }
     )
   }
-})
+}));
+

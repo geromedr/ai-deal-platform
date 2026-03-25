@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async () => {
+serve(createAgentHandler({ agentName: "planning-da-discovery-agent" }, async () => {
 
   try {
 
@@ -81,9 +82,10 @@ serve(async () => {
   } catch (error) {
 
     return new Response(JSON.stringify({
-      error: error.message
+      error: error instanceof Error ? error.message : "Unknown error"
     }), { status: 500 })
 
   }
 
-})
+}));
+

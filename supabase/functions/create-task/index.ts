@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { insertTaskWithCompatibility } from "../_shared/action-layer-compat.ts";
 import { incrementDealPerformanceMetrics } from "../_shared/deal-feed.ts";
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -14,7 +15,7 @@ function normalizeStatus(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "create-task", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "title", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -152,4 +153,5 @@ serve(async (req) => {
       error: error instanceof Error ? error.message : "Unknown error",
     }, 500);
   }
-});
+}));
+

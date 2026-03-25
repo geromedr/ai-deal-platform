@@ -1,0 +1,6 @@
+{
+  "capital_pool": 5000000,
+  "max_deals": 3,
+  "allocation_status": "proposed",
+  "minimum_priority_score": 70
+}

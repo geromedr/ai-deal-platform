@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -20,7 +21,7 @@ function isUuid(value: string) {
   );
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "subscribe-deal-feed" }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -82,4 +83,5 @@ serve(async (req) => {
       500,
     );
   }
-});
+}));
+

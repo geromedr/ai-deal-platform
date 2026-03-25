@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type RequestPayload = {
   deal_id?: string;
@@ -48,7 +49,7 @@ function buildAddress(deal: Record<string, unknown> | null) {
   return parts.join(", ");
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "generate-deal-pack", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -292,6 +293,20 @@ serve(async (req) => {
       throw new Error(logError.message);
     }
 
+    const { error: indexError } = await supabase.from("report_index").insert({
+      deal_id,
+      report_type: "deal_pack",
+      source_agent: "generate-deal-pack",
+      source_action: "deal_pack_generated",
+      payload: {
+        deal_pack: dealPack,
+      },
+    });
+
+    if (indexError) {
+      throw new Error(indexError.message);
+    }
+
     return jsonResponse({
       success: true,
       deal_pack: dealPack,
@@ -300,4 +315,5 @@ serve(async (req) => {
     console.error("generate-deal-pack failed", error);
     return jsonResponse({ error: getErrorMessage(error) }, 500);
   }
-});
+}));
+

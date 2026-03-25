@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import {
   computeCompositeDealScore,
   parseNumber,
@@ -38,7 +39,7 @@ function parseCreatedAt(value: unknown) {
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "get-top-deals" }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -184,4 +185,5 @@ serve(async (req) => {
     console.error("get-top-deals failed", error);
     return jsonResponse({ error: getErrorMessage(error) }, 500);
   }
-});
+}));
+

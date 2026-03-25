@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
 type DiscoveryRequest = {
   source?: string
@@ -159,7 +160,7 @@ function mapToSiteCandidates(applications: MockPlanningApplication[]) {
   }))
 }
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "da-discovery-agent" }, async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405)
   }
@@ -293,4 +294,5 @@ serve(async (req) => {
       error: error instanceof Error ? error.message : "Unknown error"
     }, 500)
   }
-})
+}));
+

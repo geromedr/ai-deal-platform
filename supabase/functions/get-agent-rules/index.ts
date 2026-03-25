@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { normalizeAgentActionRuleRow } from "../_shared/action-layer-compat.ts"
+import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
-serve(async (req) => {
+serve(createAgentHandler({ agentName: "get-agent-rules" }, async (req) => {
   if (req.method !== "POST") {
     return new Response(
       JSON.stringify({ error: "Method not allowed" }),
@@ -91,4 +92,5 @@ serve(async (req) => {
       { status: 500, headers: { "Content-Type": "application/json" } }
     )
   }
-})
+}));
+
