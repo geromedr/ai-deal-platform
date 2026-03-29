@@ -64,6 +64,12 @@ Evaluates opportunities based on:
 ### Capital Allocation Layer
 Assigns capital to the highest-priority deals using `priority_score`, persists allocations in `capital_allocations`, and logs allocation decisions for auditability.
 
+### Investor And Capital Layer
+Maintains the investor registry in `investors`, links multiple investors to a deal through `deal_investors`, stores one lightweight active terms record per deal in `deal_terms`, and now computes deterministic fit scores into `deal_investor_matches` using investor preferences plus current deal strategy, location, target margin, and deal-size signals. The layer remains rule-based and lightweight, leaving notifications, allocation expansion, and CRM workflows out of scope.
+It now also includes a simple CRM foundation through `investor_deal_pipeline` and `investor_communications`, so each investor-deal pair can carry pipeline state, follow-up timing, and recent structured communication summaries without introducing outbound automation or autonomous messaging.
+It now also includes lightweight investor commitment tracking through `deal_capital_allocations`, allowing each investor-deal pair to store committed capital, optional allocation percentage, and commitment status without coupling that data to payment or distribution logic.
+It now also includes a thin capital visibility layer through the derived `deal_capital_summary` view, which computes raise totals, remaining capital, investor counts, and pipeline-status counts for direct UI and context consumption without adding new capital workflows.
+
 ### Analytics Layer
 Tracks final deal outcomes, scoring feedback, and lifecycle funnel performance through `deal_outcomes`, `deal_performance`, `scoring_feedback`, and `get-deal-funnel`.
 

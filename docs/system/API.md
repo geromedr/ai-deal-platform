@@ -689,6 +689,441 @@ Notes:
 - defaults to most recent first
 - uses `report_index` as the stable source and falls back to legacy report `ai_actions` rows when needed
 
+## Example: get-deal
+
+POST `/functions/v1/get-deal`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111"
+}
+```
+
+Response:
+
+```json
+{
+  "deal": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "address": "12 Marine Parade, Kingscliff NSW 2487"
+  },
+  "tasks": [],
+  "communications": [],
+  "financials": [],
+  "risks": [],
+  "deal_terms": {
+    "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "sponsor_fee_pct": 2,
+    "equity_split": {
+      "investor_pct": 80,
+      "sponsor_pct": 20
+    },
+    "preferred_return_pct": 8,
+    "notes": "Simple pari passu equity split after sponsor fee.",
+    "metadata": {},
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "updated_at": "2026-03-29T00:00:00.000Z"
+  },
+  "investors": [
+    {
+      "id": "99999999-9999-9999-9999-999999999999",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "relationship_stage": "contacted",
+      "notes": "Initial discussion complete.",
+      "metadata": {},
+      "created_at": "2026-03-29T00:00:00.000Z",
+      "updated_at": "2026-03-29T00:00:00.000Z",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "capital_min": 1000000,
+        "capital_max": 5000000,
+        "status": "active"
+      }
+    }
+  ],
+  "investor_pipeline": [
+    {
+      "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "pipeline_status": "contacted",
+      "last_contacted_at": "2026-03-29T09:30:00.000Z",
+      "next_follow_up_at": "2026-04-02T10:00:00.000Z",
+      "notes": "Requested updated underwriting and target raise summary.",
+      "metadata": {
+        "owner": "capital-team"
+      },
+      "created_at": "2026-03-29T00:00:00.000Z",
+      "updated_at": "2026-03-29T09:30:00.000Z",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "capital_min": 1000000,
+        "capital_max": 5000000,
+        "status": "active"
+      }
+    }
+  ],
+  "investor_communications": [
+    {
+      "id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "communication_type": "email",
+      "direction": "outbound",
+      "subject": "Kingscliff deal overview",
+      "summary": "Sent the latest deal snapshot and requested feedback on appetite and timing.",
+      "status": "sent",
+      "metadata": {},
+      "communicated_at": "2026-03-29T09:30:00.000Z",
+      "created_at": "2026-03-29T09:30:00.000Z",
+      "updated_at": "2026-03-29T09:30:00.000Z",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "status": "active"
+      }
+    }
+  ],
+  "capital_allocations": [
+    {
+      "id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "committed_amount": 2500000,
+      "allocation_pct": 25,
+      "status": "soft_commit",
+      "notes": "Indicative commitment pending final IC sign-off.",
+      "metadata": {
+        "source": "capital-team"
+      },
+      "created_at": "2026-03-29T12:00:00.000Z",
+      "updated_at": "2026-03-29T12:00:00.000Z",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "capital_min": 1000000,
+        "capital_max": 5000000,
+        "status": "active"
+      }
+    }
+  ],
+  "capital_summary": {
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "capital_target": 6500000,
+    "total_committed": 0,
+    "total_soft_commit": 2500000,
+    "remaining_capital": 6500000,
+    "investor_count": 1,
+    "committed_investor_count": 0,
+    "soft_commit_investor_count": 1,
+    "pipeline_new_count": 0,
+    "pipeline_contacted_count": 1,
+    "pipeline_interested_count": 0,
+    "pipeline_negotiating_count": 0,
+    "pipeline_committed_count": 0,
+    "pipeline_passed_count": 0,
+    "pipeline_archived_count": 0,
+    "pipeline_summary": {
+      "new": 0,
+      "contacted": 1,
+      "interested": 0,
+      "negotiating": 0,
+      "committed": 0,
+      "passed": 0,
+      "archived": 0
+    }
+  },
+  "investor_matches": [
+    {
+      "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "match_score": 87,
+      "match_band": "strong",
+      "strategy_score": 35,
+      "budget_score": 20,
+      "risk_score": 20,
+      "location_score": 12,
+      "match_reasons": {
+        "strategy": {
+          "matched": true
+        },
+        "budget": {
+          "matched": false
+        },
+        "risk": {
+          "matched": true
+        },
+        "location": {
+          "matched": true
+        }
+      },
+      "deal_snapshot": {
+        "strategy": "hold-and-develop",
+        "state": "NSW",
+        "suburb": "Kingscliff",
+        "deal_size": 6489840,
+        "target_margin": 0.5673,
+        "risk_band": "opportunistic"
+      },
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "capital_min": 1000000,
+        "capital_max": 5000000,
+        "status": "active",
+        "preferred_strategies": [
+          "hold-and-develop"
+        ],
+        "risk_profile": "opportunistic",
+        "preferred_states": [
+          "NSW"
+        ],
+        "preferred_suburbs": [],
+        "min_target_margin_pct": 18
+      }
+    }
+  ]
+}
+```
+
+Notes:
+- `deal_id` must be a valid UUID
+- `investors` returns deal-specific relationship rows with nested base investor details from `investors`
+- `deal_terms` is a nullable additive field that returns the current stored terms record directly when defined
+- `investor_pipeline` is an additive CRM field sourced from `investor_deal_pipeline`, with one row per investor-deal pair
+- `investor_communications` is an additive context field returning recent deal-linked communication summaries from `investor_communications`
+- `capital_allocations` is an additive field sourced from `deal_capital_allocations`, returning per-investor commitment tracking for the deal
+- `capital_summary` is an additive derived field sourced from `deal_capital_summary`, exposing raise totals, remaining capital, investor counts, and pipeline counts in one deterministic object
+- `investor_matches` is an additive field sourced from `deal_investor_matches`; `get-deal` refreshes those rows first through `refresh_deal_investor_matches`
+- matching is deterministic and limited to stored strategy, deal-size, margin/risk, and location signals
+
+## Example: get-deal-context
+
+POST `/functions/v1/get-deal-context`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111"
+}
+```
+
+Response:
+
+```json
+{
+  "deal": {
+    "id": "11111111-1111-1111-1111-111111111111",
+    "status": "reviewing"
+  },
+  "tasks": [],
+  "communications": [],
+  "financials": [],
+  "risks": [],
+  "deal_terms": {
+    "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "sponsor_fee_pct": 2,
+    "equity_split": {
+      "investor_pct": 80,
+      "sponsor_pct": 20
+    },
+    "preferred_return_pct": 8,
+    "notes": "Simple pari passu equity split after sponsor fee.",
+    "metadata": {},
+    "created_at": "2026-03-29T00:00:00.000Z",
+    "updated_at": "2026-03-29T00:00:00.000Z"
+  },
+  "investors": [
+    {
+      "id": "99999999-9999-9999-9999-999999999999",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "relationship_stage": "qualified",
+      "notes": null,
+      "metadata": {},
+      "created_at": "2026-03-29T00:00:00.000Z",
+      "updated_at": "2026-03-29T00:00:00.000Z",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "capital_min": 1000000,
+        "capital_max": 5000000,
+        "status": "active"
+      }
+    }
+  ],
+  "investor_pipeline": [
+    {
+      "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "pipeline_status": "interested",
+      "last_contacted_at": "2026-03-29T09:30:00.000Z",
+      "next_follow_up_at": "2026-04-02T10:00:00.000Z",
+      "notes": "Awaiting IC feedback after first pass.",
+      "metadata": {},
+      "created_at": "2026-03-29T00:00:00.000Z",
+      "updated_at": "2026-03-29T09:30:00.000Z",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "capital_min": 1000000,
+        "capital_max": 5000000,
+        "status": "active"
+      }
+    }
+  ],
+  "investor_communications": [
+    {
+      "id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "communication_type": "call",
+      "direction": "inbound",
+      "subject": "Harbour Capital diligence call",
+      "summary": "Investor requested updated comparables and confirmation on equity split assumptions.",
+      "status": "received",
+      "metadata": {},
+      "communicated_at": "2026-03-29T11:00:00.000Z",
+      "created_at": "2026-03-29T11:00:00.000Z",
+      "updated_at": "2026-03-29T11:00:00.000Z",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "status": "active"
+      }
+    }
+  ],
+  "capital_allocations": [
+    {
+      "id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "committed_amount": 3000000,
+      "allocation_pct": 30,
+      "status": "hard_commit",
+      "notes": "Approved at IC and reserved in current raise.",
+      "metadata": {},
+      "created_at": "2026-03-29T12:00:00.000Z",
+      "updated_at": "2026-03-29T15:00:00.000Z",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "capital_min": 1000000,
+        "capital_max": 5000000,
+        "status": "active"
+      }
+    }
+  ],
+  "capital_summary": {
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "capital_target": 6500000,
+    "total_committed": 3000000,
+    "total_soft_commit": 0,
+    "remaining_capital": 3500000,
+    "investor_count": 1,
+    "committed_investor_count": 1,
+    "soft_commit_investor_count": 0,
+    "pipeline_new_count": 0,
+    "pipeline_contacted_count": 0,
+    "pipeline_interested_count": 1,
+    "pipeline_negotiating_count": 0,
+    "pipeline_committed_count": 0,
+    "pipeline_passed_count": 0,
+    "pipeline_archived_count": 0,
+    "pipeline_summary": {
+      "new": 0,
+      "contacted": 0,
+      "interested": 1,
+      "negotiating": 0,
+      "committed": 0,
+      "passed": 0,
+      "archived": 0
+    }
+  },
+  "investor_matches": [
+    {
+      "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "match_score": 87,
+      "match_band": "strong",
+      "strategy_score": 35,
+      "budget_score": 20,
+      "risk_score": 20,
+      "location_score": 12,
+      "match_reasons": {
+        "strategy": {
+          "matched": true
+        },
+        "budget": {
+          "matched": false
+        },
+        "risk": {
+          "matched": true
+        },
+        "location": {
+          "matched": true
+        }
+      },
+      "deal_snapshot": {
+        "strategy": "hold-and-develop",
+        "state": "NSW",
+        "suburb": "Kingscliff",
+        "deal_size": 6489840,
+        "target_margin": 0.5673,
+        "risk_band": "opportunistic"
+      },
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "capital_min": 1000000,
+        "capital_max": 5000000,
+        "status": "active",
+        "preferred_strategies": [
+          "hold-and-develop"
+        ],
+        "risk_profile": "opportunistic",
+        "preferred_states": [
+          "NSW"
+        ],
+        "preferred_suburbs": [],
+        "min_target_margin_pct": 18
+      }
+    }
+  ]
+}
+```
+
+Notes:
+- response shape remains deal-context focused, with investor links added as an additive field
+- `deal_terms` is returned as a nullable additive field so callers can answer "what are the terms of this deal?" from persisted data alone
+- `investor_pipeline` is returned as an additive CRM layer so callers can see current investor status and follow-up timing without inferring it from `deal_investors`
+- `investor_communications` is returned as an additive recent-summary layer for investor-facing context tied to the deal
+- `capital_allocations` is returned as an additive commitment layer so callers can answer "who has committed what to this deal?" directly from stored rows
+- `capital_summary` is returned as an additive derived layer so callers can answer "how much is raised, how much is left, how many investors are committed, and what is the pipeline status?" without recomputing totals client-side
+- `investor_matches` is returned as an additive field after `get-deal-context` refreshes deterministic scores for all active investors
+- query failures across deal, task, communication, financial, risk, or investor reads now return explicit errors instead of partial silent nulls
+
 ## Example: get-deal-feed
 
 POST `/functions/v1/get-deal-feed`

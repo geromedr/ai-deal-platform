@@ -38,6 +38,8 @@ Deal Management
 - deal-intelligence
 - deal-report-agent
 - notification-agent
+- get-deal
+- get-deal-context
 - get-deal-feed
 - get-top-deals
 - generate-deal-report
@@ -46,6 +48,18 @@ Deal Management
 - deal-report-agent now builds structured investment summaries from deal, context, planning, yield, financial snapshot, comparable sales, and ranking data with fallback-safe human-readable output plus direct database fallbacks when optional reads or logging fail
 - generate-deal-pack now builds structured investor deal-pack JSON with summary, financials, risks, comparable context, and PDF-ready render hints
 - internal-ops-dashboard now serves a lightweight operator UI for feed review, approvals, notifications, usage, health, retry queues, funnel metrics, and manual control actions
+
+Investor And Capital Layer
+- investor tracking base now persists reusable investor records in `investors` and many-to-many deal relationships in `deal_investors`
+- deal terms layer now persists one active lightweight terms record per deal in `deal_terms`, covering sponsor fee, preferred return, equity split, notes, and metadata without introducing waterfall logic
+- get-deal and get-deal-context now return linked investor relationship-stage data so later communications, terms, and matching features can build on the same base layer
+- get-deal and get-deal-context now also return `deal_terms` directly so the current deal terms can be answered from stored data without additional computation
+- investor matching layer now stores explicit investor preferences on `investors`, computes deterministic rule-based fit scores through SQL, persists them in `deal_investor_matches`, and refreshes them automatically when `get-deal` or `get-deal-context` is called
+- investor CRM foundation now tracks per-investor per-deal status, follow-up dates, notes, and metadata in `investor_deal_pipeline`, with additive backfill from existing `deal_investors` links
+- investor communication foundation now stores structured investor-facing communication summaries in `investor_communications`, and `get-deal` / `get-deal-context` return recent deal-linked entries as additive context fields
+- capital allocation commitments now persist per-investor per-deal commitment tracking in `deal_capital_allocations`, with optional allocation percentages, lightweight status progression, and an idempotent `upsert_deal_capital_allocation` RPC
+- get-deal and get-deal-context now return `capital_allocations` directly so the platform can answer who has committed what to a deal without inferring from pipeline or terms state
+- capital visibility is now exposed through derived `deal_capital_summary` outputs returned by `get-deal` and `get-deal-context`, so UI layers can consume raise totals, remaining capital, investor counts, and pipeline counts without duplicating aggregation logic
 
 Testing
 - test-agent
@@ -77,6 +91,7 @@ Testing
 - generated deal reports, packs, and weekly summaries are now indexed in `report_index` and retrievable through `get-deal-reports`
 - deal performance metrics are now tracked in `deal_performance`, with `get-deal-feed`, `notification-agent`, and `create-task` incrementing views, notifications, and action counts
 - capital allocation support now persists `capital_allocations`, exposes `allocate-capital`, assigns capital across top-priority deals, and logs each allocation run to `ai_actions`
+- investor matching is now enabled as a simple rule-based layer, while outbound automation, autonomous communication workflows, and allocation expansion remain explicitly deferred
 - deal outcome tracking now persists `deal_outcomes`, updates aggregate outcome metrics on `deal_performance`, and logs final outcome updates through `update-deal-outcome`
 - adaptive scoring feedback now stores bounded predicted-vs-actual weight adjustments in `scoring_feedback` and applies the latest feedback weights inside `get-deal-feed` priority scoring
 - deal funnel analytics now exposes `get-deal-funnel` for lifecycle counts, conversion rates, and average stage durations across `active`, `reviewing`, `approved`, `funded`, and `completed`
@@ -100,6 +115,6 @@ Testing
 Parcel Scanner  
 Deal Ranking AI  
 Automated Feasibility Reports  
-Investor Deal Feed
+Investor Deal Feed Workflow
 
 Estimated completion: **65–70%**

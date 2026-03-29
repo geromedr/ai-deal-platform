@@ -122,6 +122,179 @@ Indexes:
 
 ---
 
+## investors
+
+Investor registry used for the investor and capital layer base. Stores reusable investor records that can later be linked to deal-specific terms, communications, and matching workflows.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- investor_name (text, required)
+- investor_type (text, default `individual`; allowed values `individual`, `private_investor`, `family_office`, `syndicate`, `fund`, `developer`, `lender`, `broker`, `other`)
+- capital_min (numeric, check `>= 0` when present)
+- capital_max (numeric, check `>= 0` when present and `>= capital_min` when both are present)
+- preferred_strategies (text[], default `{}`)
+- risk_profile (text, default `balanced`; allowed values `low`, `balanced`, `high`, `opportunistic`)
+- preferred_states (text[], default `{}`)
+- preferred_suburbs (text[], default `{}`)
+- min_target_margin_pct (numeric, nullable, check `>= 0` and `<= 100`)
+- status (text, default `active`; allowed values `active`, `inactive`, `archived`)
+- notes (text)
+- metadata (jsonb, default `{}`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Indexes:
+- status + updated_at
+- investor_type + status
+
+---
+
+## deal_investors
+
+Join table linking multiple investors to a single deal, with lightweight relationship-stage tracking for the current deal context.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- investor_id (uuid, fk -> investors.id)
+- relationship_stage (text, default `new`; allowed values `new`, `contacted`, `qualified`, `interested`, `soft_committed`, `committed`, `passed`)
+- notes (text)
+- metadata (jsonb, default `{}`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Unique:
+- (deal_id, investor_id)
+
+Indexes:
+- deal_id + created_at
+- investor_id + created_at
+
+---
+
+## deal_terms
+
+Lightweight investor-facing terms for a deal. Stores a direct, low-computation summary of the current commercial terms without introducing waterfall or allocation logic. One row per deal for the current active terms set.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, unique fk -> deals.id)
+- sponsor_fee_pct (numeric, nullable, check `>= 0` and `<= 100`)
+- equity_split (jsonb, default `{}`)
+- preferred_return_pct (numeric, nullable, check `>= 0` and `<= 100`)
+- notes (text)
+- metadata (jsonb, default `{}`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Indexes:
+- updated_at
+
+---
+
+## deal_investor_matches
+
+Deterministic deal-to-investor fit records generated from stored investor preferences and current deal attributes. One row per `deal_id + investor_id`, updated idempotently by the matching refresh RPC.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- investor_id (uuid, fk -> investors.id)
+- match_score (integer, check `>= 0` and `<= 100`)
+- match_band (text; allowed values `strong`, `medium`, `weak`, `none`)
+- strategy_score (integer, component score out of `35`)
+- budget_score (integer, component score out of `25`)
+- risk_score (integer, component score out of `20`)
+- location_score (integer, component score out of `20`)
+- match_reasons (jsonb, default `{}`)
+- deal_snapshot (jsonb, default `{}`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Unique:
+- (deal_id, investor_id)
+
+Indexes:
+- deal_id + match_score + updated_at
+- investor_id + match_score + updated_at
+
+---
+
+## investor_deal_pipeline
+
+Lightweight CRM pipeline table storing the current investor-specific status for a deal plus follow-up context. One row per `deal_id + investor_id`.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- investor_id (uuid, fk -> investors.id)
+- pipeline_status (text, default `new`; allowed values `new`, `contacted`, `interested`, `negotiating`, `committed`, `passed`, `archived`)
+- last_contacted_at (timestamptz)
+- next_follow_up_at (timestamptz)
+- notes (text)
+- metadata (jsonb, default `{}`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Unique:
+- (deal_id, investor_id)
+
+Indexes:
+- deal_id + pipeline_status + next_follow_up_at
+- investor_id + pipeline_status + updated_at
+
+---
+
+## investor_communications
+
+Investor-focused communication log used to store structured summaries for inbound, outbound, and internal investor interactions. Records always link to `investor_id` and may optionally link to a `deal_id`.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- investor_id (uuid, fk -> investors.id)
+- deal_id (uuid, nullable fk -> deals.id)
+- communication_type (text, default `note`; allowed values `note`, `email`, `call`, `meeting`, `sms`, `document`, `other`)
+- direction (text, default `internal`; allowed values `inbound`, `outbound`, `internal`)
+- subject (text)
+- summary (text, required)
+- status (text, default `logged`; allowed values `draft`, `logged`, `sent`, `received`, `failed`, `archived`)
+- metadata (jsonb, default `{}`)
+- communicated_at (timestamptz, default `now()`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Indexes:
+- investor_id + communicated_at
+- deal_id + communicated_at
+
+---
+
+## deal_capital_allocations
+
+Investor-level capital commitment tracking for a deal. One row per `deal_id + investor_id`, kept intentionally lightweight so commitments can be tracked without introducing payment flows, waterfalls, or distribution logic.
+
+Fields:
+- id (uuid, pk, default gen_random_uuid())
+- deal_id (uuid, fk -> deals.id)
+- investor_id (uuid, fk -> investors.id)
+- committed_amount (numeric, default `0`, check `>= 0`)
+- allocation_pct (numeric, nullable, check `>= 0` and `<= 100`)
+- status (text, default `proposed`; allowed values `proposed`, `soft_commit`, `hard_commit`, `funded`)
+- notes (text)
+- metadata (jsonb, default `{}`)
+- created_at (timestamptz)
+- updated_at (timestamptz)
+
+Unique:
+- (deal_id, investor_id)
+
+Indexes:
+- deal_id + status + updated_at
+- investor_id + status + updated_at
+- deal_id + created_at
+
+---
+
 ## deal_outcomes
 
 Outcome tracking records for deals. Multiple outcome snapshots may be recorded over time for the same deal.
@@ -622,6 +795,30 @@ Columns:
 
 ---
 
+## deal_capital_summary
+
+Database view exposing UI-ready capital visibility metrics per deal without introducing new workflow tables.
+
+Columns:
+- deal_id (uuid)
+- capital_target (numeric, nullable; derived from `deal_terms.metadata`, `deals.metadata`, then latest financial snapshot fallback)
+- total_committed (numeric; sum of `deal_capital_allocations.committed_amount` where status is `hard_commit` or `funded`)
+- total_soft_commit (numeric; sum where status is `soft_commit`)
+- remaining_capital (numeric, nullable; `capital_target - total_committed`, floor at `0`)
+- investor_count (integer; distinct investor count across linked deal-investor, pipeline, and capital-allocation rows)
+- committed_investor_count (integer; count of investor allocations with `hard_commit` or `funded`)
+- soft_commit_investor_count (integer; count of investor allocations with `soft_commit`)
+- pipeline_new_count (integer)
+- pipeline_contacted_count (integer)
+- pipeline_interested_count (integer)
+- pipeline_negotiating_count (integer)
+- pipeline_committed_count (integer)
+- pipeline_passed_count (integer)
+- pipeline_archived_count (integer)
+- pipeline_summary (jsonb; flat status-to-count object for UI consumption)
+
+---
+
 ## RPC FUNCTIONS
 
 ### match_knowledge_chunks(query_embedding vector(1536), match_count integer)
@@ -631,3 +828,27 @@ Returns the nearest knowledge chunks by vector similarity.
 ### match_knowledge_chunks_by_category(query_embedding vector(1536), match_count integer, filter_category text)
 
 Returns the nearest knowledge chunks filtered by category.
+
+### upsert_deal_investor(p_deal_id uuid, p_investor_id uuid, p_relationship_stage text, p_notes text, p_metadata jsonb)
+
+Creates or updates a `deal_investors` link for a given deal and investor, keeping relationship-stage tracking idempotent for future investor workflow endpoints.
+
+### upsert_deal_terms(p_deal_id uuid, p_sponsor_fee_pct numeric, p_equity_split jsonb, p_preferred_return_pct numeric, p_notes text, p_metadata jsonb)
+
+Creates or updates the single active `deal_terms` row for a given deal, keeping terms storage lightweight and directly queryable for later investor and AI workflows.
+
+### investor_match_score(p_deal_id uuid, p_investor_id uuid)
+
+Returns a deterministic rule-based score breakdown for a single deal and investor using strategy, budget fit, target margin / risk fit, and location preferences.
+
+### refresh_deal_investor_matches(p_deal_id uuid, p_investor_id uuid default null)
+
+Upserts `deal_investor_matches` rows for the target deal across all active investors, or for a single investor when `p_investor_id` is supplied.
+
+### upsert_investor_deal_pipeline(p_deal_id uuid, p_investor_id uuid, p_pipeline_status text default 'new', p_last_contacted_at timestamptz default null, p_next_follow_up_at timestamptz default null, p_notes text default null, p_metadata jsonb default '{}'::jsonb)
+
+Creates or updates the single CRM pipeline row for a given deal and investor, keeping lightweight investor follow-up tracking idempotent.
+
+### upsert_deal_capital_allocation(p_deal_id uuid, p_investor_id uuid, p_committed_amount numeric default 0, p_allocation_pct numeric default null, p_status text default 'proposed', p_notes text default null, p_metadata jsonb default '{}'::jsonb)
+
+Creates or updates the single investor commitment row for a given deal and investor, keeping capital commitment tracking deterministic and additive to `deal_terms` and `investor_deal_pipeline`.

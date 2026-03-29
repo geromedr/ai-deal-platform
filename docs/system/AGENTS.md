@@ -164,10 +164,10 @@ Attaches lightweight knowledge and document references to a deal through `deal_k
 ## Deal Context
 
 ### get-deal
-Fetches core deal data and related records.
+Fetches core deal data and related records, now including linked `deal_investors` rows with nested investor registry details, the direct `deal_terms` record when one exists, an additive `investor_pipeline` array sourced from `investor_deal_pipeline`, recent additive `investor_communications` summaries for the deal, additive `capital_allocations` rows sourced from `deal_capital_allocations`, a derived `capital_summary` object sourced from `deal_capital_summary`, and an auto-refreshed `investor_matches` array sourced from `deal_investor_matches`.
 
 ### get-deal-context
-Retrieves contextual information across deal records.
+Retrieves contextual information across deal records, now including linked investor relationships, investor base-record details, the direct `deal_terms` record for the deal when present, an additive `investor_pipeline` array for per-investor CRM state, recent additive `investor_communications` summaries, additive `capital_allocations` rows for per-investor commitment tracking, a derived `capital_summary` object sourced from `deal_capital_summary`, and an auto-refreshed `investor_matches` array for deterministic investor-fit review.
 
 ### get-deal-feed
 Returns recent `deal_feed` entries with optional minimum score, status, and `user_id` preference filtering, joined to `deals` for flat address, suburb, strategy, and stage fields, while using the persisted or computed weighted `priority_score` plus the latest bounded `scoring_feedback` adjustments when available.
