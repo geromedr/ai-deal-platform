@@ -63,8 +63,7 @@ export function clampNumber(value: number, min: number, max: number) {
 
 export function getStrategyFromDeal(value: unknown) {
   if (!isRecord(value)) return null;
-  const metadata = isRecord(value.metadata) ? value.metadata : null;
-  const strategy = metadata?.strategy ?? value.strategy;
+  const strategy = value.strategy;
   return typeof strategy === "string" && strategy.trim().length > 0
     ? strategy.trim()
     : null;

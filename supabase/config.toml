@@ -104,6 +104,8 @@ port = 54324
 
 [storage]
 enabled = true
+# Linked project service version sync note: storage-api v1.43.3 is tracked in
+# `supabase/.temp/storage-version` after `supabase link`.
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
@@ -145,6 +147,8 @@ max_indexes = 5
 
 [auth]
 enabled = true
+# Linked project service version sync note: gotrue v2.188.1 is tracked in
+# `supabase/.temp/gotrue-version` after `supabase link`.
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
 site_url = "http://127.0.0.1:3000"
@@ -723,3 +727,9 @@ entrypoint = "./functions/cleanup/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/internal-ops-dashboard/index.ts"
+
+[functions.investor-actions]
+enabled = true
+verify_jwt = true
+import_map = "./functions/investor-actions/deno.json"
+entrypoint = "./functions/investor-actions/index.ts"

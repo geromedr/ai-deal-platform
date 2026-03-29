@@ -1,0 +1,10 @@
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "action_type": "contact_investor",
+  "communication_type": "note",
+  "direction": "outbound",
+  "subject": "Investor outreach",
+  "summary": "Initial outbound investor outreach logged by the action layer.",
+  "suggestion_threshold": 50
+}

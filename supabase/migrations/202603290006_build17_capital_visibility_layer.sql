@@ -92,12 +92,17 @@ base as (
   select
     d.id as deal_id,
     coalesce(
+      public.safe_to_numeric(deal_data.deal_json ->> 'capital_target'),
+      public.safe_to_numeric(deal_data.deal_json ->> 'equity_required'),
+      public.safe_to_numeric(deal_data.deal_json ->> 'target_raise'),
+      public.safe_to_numeric(deal_data.deal_json ->> 'deal_size'),
       public.safe_to_numeric(lt.metadata ->> 'equity_required'),
       public.safe_to_numeric(lt.metadata ->> 'target_raise'),
       public.safe_to_numeric(lt.metadata ->> 'deal_size'),
-      public.safe_to_numeric(d.metadata ->> 'equity_required'),
-      public.safe_to_numeric(d.metadata ->> 'target_raise'),
-      public.safe_to_numeric(d.metadata ->> 'deal_size'),
+      public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'capital_target'),
+      public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'equity_required'),
+      public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'target_raise'),
+      public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'deal_size'),
       lf.tdc,
       lf.amount,
       lf.gdv
@@ -115,6 +120,9 @@ base as (
     coalesce(pr.pipeline_passed_count, 0)::integer as pipeline_passed_count,
     coalesce(pr.pipeline_archived_count, 0)::integer as pipeline_archived_count
   from public.deals d
+  cross join lateral (
+    select to_jsonb(d) as deal_json
+  ) as deal_data
   left join latest_terms lt
     on lt.deal_id = d.id
   left join latest_financial lf

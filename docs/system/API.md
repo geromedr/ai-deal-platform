@@ -10,20 +10,31 @@ Validation:
 
 - endpoints return `400` for missing or malformed required inputs
 - endpoints return `500` for downstream or infrastructure failures
-- resilient orchestration endpoints may return `200` with warnings when cached data is reused, optional stages are skipped, or partial data is returned safely
-- all agents now run a shared pre-execution validation step before handler logic and log a standardized `agent_execution` audit record to `ai_actions`
+- resilient orchestration endpoints may return `200` with warnings when cached
+  data is reused, optional stages are skipped, or partial data is returned
+  safely
+- all agents now run a shared pre-execution validation step before handler logic
+  and log a standardized `agent_execution` audit record to `ai_actions`
 
 ## Example: site-intelligence-agent
 
 POST `/functions/v1/site-intelligence-agent`
 
 Validation notes:
+
 - `deal_id` must be a non-empty UUID
 - `address` is required
-- `site_intelligence.raw_data` is written with the aggregated orchestration payload when the hosted schema is aligned; legacy hosted rows still complete successfully with a warning-only fallback if that column is unavailable
-- post-ranking downstream execution is delegated to `rule-engine-agent`; final report generation still falls back to `REPORT_TRIGGER_SCORE_THRESHOLD` in the function environment if rule evaluation fails
-- bootstrap, planning fallback, cached-data fallback, and pipeline logging issues are returned in `warnings` / `results` instead of crashing the request when partial execution can continue
-- top-level responses include an `orchestration` summary for post-intelligence, post-ranking, and report decisions
+- `site_intelligence.raw_data` is written with the aggregated orchestration
+  payload when the hosted schema is aligned; legacy hosted rows still complete
+  successfully with a warning-only fallback if that column is unavailable
+- post-ranking downstream execution is delegated to `rule-engine-agent`; final
+  report generation still falls back to `REPORT_TRIGGER_SCORE_THRESHOLD` in the
+  function environment if rule evaluation fails
+- bootstrap, planning fallback, cached-data fallback, and pipeline logging
+  issues are returned in `warnings` / `results` instead of crashing the request
+  when partial execution can continue
+- top-level responses include an `orchestration` summary for post-intelligence,
+  post-ranking, and report decisions
 
 Request:
 
@@ -94,10 +105,15 @@ Response:
 ```
 
 `site_intelligence` schema notes:
-- current hosted alignment target includes `raw_data jsonb` and `updated_at timestamptz`
-- `raw_data` stores the aggregated site-intelligence orchestration payload when available
-- legacy hosted rows without `raw_data` remain readable and do not block orchestration
-- `knowledge_context` is not part of `site_intelligence`; it is used by comparable-sales persistence
+
+- current hosted alignment target includes `raw_data jsonb` and
+  `updated_at timestamptz`
+- `raw_data` stores the aggregated site-intelligence orchestration payload when
+  available
+- legacy hosted rows without `raw_data` remain readable and do not block
+  orchestration
+- `knowledge_context` is not part of `site_intelligence`; it is used by
+  comparable-sales persistence
 
 ## Example: rule-engine-agent
 
@@ -162,30 +178,43 @@ Response:
 ```
 
 Rule evaluation notes:
+
 - supported operators: `>`, `<`, `>=`, `<=`, `==`, `!=`
 - supported conjunction: `AND`
 - null-safe rules such as `financials != null AND financials > 0.2` are valid
-- empty rule sets return `No rules configured for event; default fallback rule set loaded`
+- empty rule sets return
+  `No rules configured for event; default fallback rule set loaded`
 - `deal_feed` upserts run only on `post-ranking` and `post-financial`
-- when a matched rule includes high-quality score, margin, or low-risk clauses, the function upserts a `deal_feed` row keyed by `deal_id + trigger_event`
-- after a `deal_feed` row is persisted, `notification-agent` is invoked with the row payload to log a `deal_alert`
+- when a matched rule includes high-quality score, margin, or low-risk clauses,
+  the function upserts a `deal_feed` row keyed by `deal_id + trigger_event`
+- after a `deal_feed` row is persisted, `notification-agent` is invoked with the
+  row payload to log a `deal_alert`
 
 Dispatcher deduplication notes:
+
 - event dispatch dedupe now uses `deal_id + event + context_hash`
-- `context_hash` is derived deterministically from `score`, `zoning`, `yield`, and `financials`
+- `context_hash` is derived deterministically from `score`, `zoning`, `yield`,
+  and `financials`
 - identical context is skipped, changed context is allowed to re-run
-- older `ai_actions` records without `context_hash` still use legacy `deal_id + event` fallback until hashed history exists for that event
-- `deal_feed` also enforces `deal_id + trigger_event` uniqueness, so qualifying re-runs update the existing feed entry instead of creating duplicates
-- `notification-agent` evaluates each subscribed user independently and throttles to at most one `deal_alert` per deal per user in the configured timeframe
+- older `ai_actions` records without `context_hash` still use legacy
+  `deal_id + event` fallback until hashed history exists for that event
+- `deal_feed` also enforces `deal_id + trigger_event` uniqueness, so qualifying
+  re-runs update the existing feed entry instead of creating duplicates
+- `notification-agent` evaluates each subscribed user independently and
+  throttles to at most one `deal_alert` per deal per user in the configured
+  timeframe
 
 ## Example: notification-agent
 
 POST `/functions/v1/notification-agent`
 
 Validation notes:
+
 - `deal_feed_id` and `deal_id` must be non-empty UUIDs
 - `trigger_event` and `summary` are required
-- notifications are matched against `user_preferences`, low-priority alerts are suppressed unless the user's `notification_level` allows them, and each decision is logged into `ai_actions`
+- notifications are matched against `user_preferences`, low-priority alerts are
+  suppressed unless the user's `notification_level` allows them, and each
+  decision is logged into `ai_actions`
 
 Request:
 
@@ -253,13 +282,21 @@ Response:
 ```
 
 Notes:
-- `notification_type` is classified as `high_priority` when `priority_score >= 85` or `score >= 80`; otherwise it is `standard`
+
+- `notification_type` is classified as `high_priority` when
+  `priority_score >= 85` or `score >= 80`; otherwise it is `standard`
 - duplicate notification attempts still deduplicate on `deal_feed_id`
 - successful notifications increment `deal_performance.notifications_sent`
 - external email and webhook delivery run only for `high_priority` notifications
-- email delivery expects `NOTIFICATION_EMAIL_API_URL`, `NOTIFICATION_EMAIL_FROM`, and `NOTIFICATION_EMAIL_TO`; API auth can be supplied with `NOTIFICATION_EMAIL_API_KEY`
-- webhook delivery uses `NOTIFICATION_WEBHOOK_URL`, supports `structured` or `slack` payload formatting via `NOTIFICATION_WEBHOOK_FORMAT`, and retries failures using `NOTIFICATION_WEBHOOK_MAX_RETRIES`
-- rule-engine policy can queue high-impact downstream actions into `approval_queue` instead of executing them immediately when rule payloads set `requires_approval`, `approval_required`, or `route_to_approval_queue`
+- email delivery expects `NOTIFICATION_EMAIL_API_URL`,
+  `NOTIFICATION_EMAIL_FROM`, and `NOTIFICATION_EMAIL_TO`; API auth can be
+  supplied with `NOTIFICATION_EMAIL_API_KEY`
+- webhook delivery uses `NOTIFICATION_WEBHOOK_URL`, supports `structured` or
+  `slack` payload formatting via `NOTIFICATION_WEBHOOK_FORMAT`, and retries
+  failures using `NOTIFICATION_WEBHOOK_MAX_RETRIES`
+- rule-engine policy can queue high-impact downstream actions into
+  `approval_queue` instead of executing them immediately when rule payloads set
+  `requires_approval`, `approval_required`, or `route_to_approval_queue`
 
 ## Example: system-health-check
 
@@ -294,8 +331,10 @@ Response:
 ```
 
 Notes:
+
 - writes one upserted status row per component into `system_health`
-- checks `agent_registry` freshness for key agents plus database, `ai_actions`, and `deal_feed` activity
+- checks `agent_registry` freshness for key agents plus database, `ai_actions`,
+  and `deal_feed` activity
 - returns `healthy`, `warning`, or `error` based on the worst component state
 
 ## Example: get-operator-summary
@@ -324,6 +363,7 @@ Response:
 ```
 
 Notes:
+
 - response shape is flat and null-safe
 - recent notifications use the last 24 hours
 - generated reports count uses the report index over the recent reporting window
@@ -364,8 +404,10 @@ Response:
 ```
 
 Notes:
+
 - usage is aggregated from `usage_metrics`
-- `estimated_cost` uses configured per-call estimates when available and otherwise falls back to `0`, while `calls` remains the primary meter
+- `estimated_cost` uses configured per-call estimates when available and
+  otherwise falls back to `0`, while `calls` remains the primary meter
 
 ## Example: update-system-settings
 
@@ -393,8 +435,10 @@ Response:
 ```
 
 Notes:
+
 - updates the single `system_settings` row keyed by `global`
-- shared runtime checks this flag before agent execution and returns `503` when disabled
+- shared runtime checks this flag before agent execution and returns `503` when
+  disabled
 
 ## Example: approve-approval-queue
 
@@ -427,8 +471,10 @@ Response:
 ```
 
 Notes:
+
 - `decision` must be `approved` or `rejected`
-- approved requests execute the queued downstream edge function stored in `approval_queue.payload.action`
+- approved requests execute the queued downstream edge function stored in
+  `approval_queue.payload.action`
 
 ## Example: cleanup
 
@@ -458,6 +504,7 @@ Response:
 ```
 
 Notes:
+
 - trims aged `usage_metrics` and `deal_feed_realtime_fallback` rows
 - marks exhausted `agent_retry_queue` rows as `failed`
 
@@ -466,8 +513,12 @@ Notes:
 GET `/functions/v1/internal-ops-dashboard`
 
 Notes:
+
 - serves the lightweight internal operator UI
-- the page provides feed filtering, approval execution, outcome updates, notification filtering, health/retry/funnel summaries, usage cards, and manual triggers for health-check, cleanup, report generation, and system enable/disable
+- the page provides feed filtering, approval execution, outcome updates,
+  notification filtering, health/retry/funnel summaries, usage cards, and manual
+  triggers for health-check, cleanup, report generation, and system
+  enable/disable
 
 ## Example: allocate-capital
 
@@ -507,9 +558,13 @@ Response:
 ```
 
 Notes:
+
 - `capital_pool` is required and must be positive
-- eligible deals are selected from the highest `priority_score` values in `deal_feed`
-- duplicate allocations are prevented by both pre-filtering existing `capital_allocations` rows and a unique constraint on `capital_allocations.deal_id`
+- eligible deals are selected from the highest `priority_score` values in
+  `deal_feed`
+- duplicate allocations are prevented by both pre-filtering existing
+  `capital_allocations` rows and a unique constraint on
+  `capital_allocations.deal_id`
 - each allocation run is logged to `ai_actions` with action `capital_allocated`
 
 ## Example: update-deal-outcome
@@ -563,10 +618,16 @@ Response:
 ```
 
 Notes:
-- `deal_id` must be a valid UUID and `outcome_type` must be one of `won`, `lost`, or `in_progress`
-- each call appends a row to `deal_outcomes`, then recomputes aggregate outcome metrics in `deal_performance`
-- when `actual_return` is supplied, the function compares predicted vs actual performance, stores bounded weight adjustments in `scoring_feedback`, and keeps score and penalty multipliers within safe limits
-- each successful update is logged to `ai_actions` with action `deal_outcome_updated`
+
+- `deal_id` must be a valid UUID and `outcome_type` must be one of `won`,
+  `lost`, or `in_progress`
+- each call appends a row to `deal_outcomes`, then recomputes aggregate outcome
+  metrics in `deal_performance`
+- when `actual_return` is supplied, the function compares predicted vs actual
+  performance, stores bounded weight adjustments in `scoring_feedback`, and
+  keeps score and penalty multipliers within safe limits
+- each successful update is logged to `ai_actions` with action
+  `deal_outcome_updated`
 
 ## Example: get-deal-funnel
 
@@ -610,9 +671,12 @@ Response:
 ```
 
 Notes:
-- reports the lifecycle funnel for `active`, `reviewing`, `approved`, `funded`, and `completed` deals
+
+- reports the lifecycle funnel for `active`, `reviewing`, `approved`, `funded`,
+  and `completed` deals
 - conversion rates are calculated from the immediately preceding stage
-- average time per stage is derived from `deals.created_at` plus `ai_actions` `status_transition` timestamps
+- average time per stage is derived from `deals.created_at` plus `ai_actions`
+  `status_transition` timestamps
 - the response is flat, JSON-safe, and intended for dashboard consumption
 
 ## Example: add-deal-knowledge-link
@@ -686,8 +750,10 @@ Response:
 ```
 
 Notes:
+
 - defaults to most recent first
-- uses `report_index` as the stable source and falls back to legacy report `ai_actions` rows when needed
+- uses `report_index` as the stable source and falls back to legacy report
+  `ai_actions` rows when needed
 
 ## Example: get-deal
 
@@ -894,20 +960,50 @@ Response:
         "min_target_margin_pct": 18
       }
     }
+  ],
+  "suggested_investor_actions": [
+    {
+      "deal_id": "11111111-1111-1111-1111-111111111111",
+      "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "action_type": "contact_investor",
+      "reason": "Investor match score 79 is at or above threshold 50.",
+      "match_score": 79,
+      "match_band": "strong",
+      "threshold": 50,
+      "current_pipeline_status": "new",
+      "target_pipeline_status": "contacted",
+      "investor": {
+        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        "investor_name": "Harbour Capital",
+        "investor_type": "fund",
+        "status": "active"
+      }
+    }
   ]
 }
 ```
 
 Notes:
+
 - `deal_id` must be a valid UUID
-- `investors` returns deal-specific relationship rows with nested base investor details from `investors`
-- `deal_terms` is a nullable additive field that returns the current stored terms record directly when defined
-- `investor_pipeline` is an additive CRM field sourced from `investor_deal_pipeline`, with one row per investor-deal pair
-- `investor_communications` is an additive context field returning recent deal-linked communication summaries from `investor_communications`
-- `capital_allocations` is an additive field sourced from `deal_capital_allocations`, returning per-investor commitment tracking for the deal
-- `capital_summary` is an additive derived field sourced from `deal_capital_summary`, exposing raise totals, remaining capital, investor counts, and pipeline counts in one deterministic object
-- `investor_matches` is an additive field sourced from `deal_investor_matches`; `get-deal` refreshes those rows first through `refresh_deal_investor_matches`
-- matching is deterministic and limited to stored strategy, deal-size, margin/risk, and location signals
+- `investors` returns deal-specific relationship rows with nested base investor
+  details from `investors`
+- `deal_terms` is a nullable additive field that returns the current stored
+  terms record directly when defined
+- `investor_pipeline` is an additive CRM field sourced from
+  `investor_deal_pipeline`, with one row per investor-deal pair
+- `investor_communications` is an additive context field returning recent
+  deal-linked communication summaries from `investor_communications`
+- `capital_allocations` is an additive field sourced from
+  `deal_capital_allocations`, returning per-investor commitment tracking for the
+  deal
+- `capital_summary` is an additive derived field sourced from
+  `deal_capital_summary`, exposing raise totals, remaining capital, investor
+  counts, and pipeline counts in one deterministic object
+- `investor_matches` is an additive field sourced from `deal_investor_matches`;
+  `get-deal` refreshes those rows first through `refresh_deal_investor_matches`
+- matching is deterministic and limited to stored strategy, deal-size,
+  margin/risk, and location signals
 
 ## Example: get-deal-context
 
@@ -1115,14 +1211,180 @@ Response:
 ```
 
 Notes:
-- response shape remains deal-context focused, with investor links added as an additive field
-- `deal_terms` is returned as a nullable additive field so callers can answer "what are the terms of this deal?" from persisted data alone
-- `investor_pipeline` is returned as an additive CRM layer so callers can see current investor status and follow-up timing without inferring it from `deal_investors`
-- `investor_communications` is returned as an additive recent-summary layer for investor-facing context tied to the deal
-- `capital_allocations` is returned as an additive commitment layer so callers can answer "who has committed what to this deal?" directly from stored rows
-- `capital_summary` is returned as an additive derived layer so callers can answer "how much is raised, how much is left, how many investors are committed, and what is the pipeline status?" without recomputing totals client-side
-- `investor_matches` is returned as an additive field after `get-deal-context` refreshes deterministic scores for all active investors
-- query failures across deal, task, communication, financial, risk, or investor reads now return explicit errors instead of partial silent nulls
+
+- response shape remains deal-context focused, with investor links added as an
+  additive field
+- `deal_terms` is returned as a nullable additive field so callers can answer
+  "what are the terms of this deal?" from persisted data alone
+- `investor_pipeline` is returned as an additive CRM layer so callers can see
+  current investor status and follow-up timing without inferring it from
+  `deal_investors`
+- `investor_communications` is returned as an additive recent-summary layer for
+  investor-facing context tied to the deal
+- `capital_allocations` is returned as an additive commitment layer so callers
+  can answer "who has committed what to this deal?" directly from stored rows
+- `capital_summary` is returned as an additive derived layer so callers can
+  answer "how much is raised, how much is left, how many investors are
+  committed, and what is the pipeline status?" without recomputing totals
+  client-side
+- `investor_matches` is returned as an additive field after `get-deal-context`
+  refreshes deterministic scores for all active investors
+- `suggested_investor_actions` is returned as an additive deterministic action
+  layer, currently suggesting `contact_investor` only when `match_score >= 50`
+  and the investor is still at pipeline status `new`
+- query failures across deal, task, communication, financial, risk, or investor
+  reads now return explicit errors instead of partial silent nulls
+
+## Example: investor-actions
+
+POST `/functions/v1/investor-actions`
+
+Validation notes:
+
+- `deal_id` must be a non-empty UUID
+- `action_type` is required unless `suggest_only` is `true`
+- the only supported `action_type` is `contact_investor`
+- `investor_id` is required for action execution and must be a valid UUID
+- execution is deterministic and limited to logging `investor_communications`,
+  updating `investor_deal_pipeline`, and writing an `ai_actions` audit row
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "action_type": "contact_investor",
+  "communication_type": "note",
+  "direction": "outbound",
+  "subject": "Investor outreach",
+  "summary": "Initial outbound investor outreach logged by the action layer.",
+  "suggestion_threshold": 50
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "action_executed": true,
+  "result": {
+    "action_type": "contact_investor",
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "pipeline_transition": {
+      "from": "new",
+      "to": "contacted"
+    },
+    "communication": {
+      "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "status": "logged",
+      "summary": "Initial outbound investor outreach logged by the action layer."
+    },
+    "pipeline": {
+      "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      "pipeline_status": "contacted",
+      "last_contacted_at": "2026-03-29T00:00:00.000Z"
+    }
+  },
+  "matched_suggestion": {
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "action_type": "contact_investor",
+    "match_score": 79,
+    "threshold": 50,
+    "current_pipeline_status": "new",
+    "target_pipeline_status": "contacted"
+  },
+  "remaining_suggestions": []
+}
+```
+
+Suggestion-only request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "suggest_only": true,
+  "suggestion_threshold": 50
+}
+```
+
+Notes:
+
+- repeated `contact_investor` executions progress the same investor
+  deterministically through `new -> contacted -> interested -> negotiating`
+- the action layer only writes pipeline statuses from the valid transition set
+  `new`, `contacted`, `interested`, and `negotiating`
+- suggestion generation is deterministic and only returns `contact_investor` for
+  investors whose `deal_investor_matches.match_score` is at or above the
+  threshold while pipeline status is still `new`
+- database failures are returned as structured JSON with `success: false`,
+  `error: true`, a top-level `message`, and `details.step` describing the
+  failing operation instead of an uncaught function crash
+- the function does not send messages, create automation loops, or modify
+  external systems
+
+Failure response example:
+
+```json
+{
+  "success": false,
+  "error": true,
+  "message": "Failed to update investor pipeline",
+  "details": {
+    "step": "upsert_investor_deal_pipeline",
+    "reason": "null value in column \"updated_at\" violates not-null constraint",
+    "deal_id": "11111111-1111-1111-1111-111111111111",
+    "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "status": "contacted",
+    "communication_id": "cccccccc-cccc-cccc-cccc-cccccccccccc"
+  },
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "action_executed": false
+}
+```
+
+## Example: investor-outreach
+
+POST `/functions/v1/investor-outreach`
+
+Validation notes:
+
+- `deal_id` and `investor_id` are required and must be valid UUIDs
+- the function loads current deal, investor, financial, and risk context from
+  Supabase and returns a deterministic draft only
+- no outbound email, SMS, or webhook delivery occurs
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "investor_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+}
+```
+
+Response:
+
+```json
+{
+  "subject": "Hold And Develop | Kingscliff, NSW | 19% target margin",
+  "message": "Hi Harbour Capital,\n\nSharing a hold-and-develop deal in Kingscliff, NSW that fits your hold-and-develop focus.\n\nTL;DR\n- Deal: High-quality coastal site; 12 Marine Parade, Kingscliff NSW 2487; estimated 24 units.\n- Returns: Target margin 19% with projected profit $8.5M on GDV $45M.\n- Risk: Medium risk flagged: Flood overlay diligence.\n\nIf this fits your current mandate, I can share the full deal pack and walk through the assumptions."
+}
+```
+
+Notes:
+
+- personalization is intentionally light and only uses stored strategy and
+  location preferences when available
+- message structure is fixed: hook, 3-bullet TL;DR, and call to action
+- the function is designed to generate a ready-to-send draft per deal/investor
+  pair without logging an outbound send
 
 ## Example: get-deal-feed
 
@@ -1177,12 +1439,17 @@ Response:
 ```
 
 Notes:
+
 - default `limit` is `20`
-- optional filters: `score` is treated as a minimum score, `status` filters by exact lifecycle status, and `user_id` applies `user_preferences` when present
+- optional filters: `score` is treated as a minimum score, `status` filters by
+  exact lifecycle status, and `user_id` applies `user_preferences` when present
 - default sort is `priority_score desc`; ties fall back to `created_at desc`
-- `priority_score` uses bounded weighted logic: base score + margin contribution - flood/open-risk penalties, with optional latest `scoring_feedback.adjusted_weights` applied when feedback exists
+- `priority_score` uses bounded weighted logic: base score + margin
+  contribution - flood/open-risk penalties, with optional latest
+  `scoring_feedback.adjusted_weights` applied when feedback exists
 - archived rows are excluded unless `status` is explicitly supplied
-- each returned deal increments `deal_performance.views` and updates `last_viewed_at`
+- each returned deal increments `deal_performance.views` and updates
+  `last_viewed_at`
 
 ## Example: get-top-deals
 
@@ -1217,8 +1484,10 @@ Response:
 ```
 
 Notes:
+
 - default sort is `composite_score`
-- `score` is the composite ranking score derived from `priority_score`, `views`, and `actions_taken`
+- `score` is the composite ranking score derived from `priority_score`, `views`,
+  and `actions_taken`
 - default limit is `10`
 
 ## Example: generate-deal-report
@@ -1266,9 +1535,11 @@ Response:
 ```
 
 Notes:
+
 - the function summarises the trailing weekly window by default
 - improved deals are sourced from `Re-evaluate feasibility` tasks
-- each generated report is logged to `ai_actions` with action `weekly_deal_report_generated`
+- each generated report is logged to `ai_actions` with action
+  `weekly_deal_report_generated`
 
 ## Example: generate-deal-pack
 
@@ -1318,8 +1589,10 @@ Response:
 ```
 
 Notes:
+
 - `deal_id` must be a non-empty UUID
-- the response is structured for future PDF conversion and logs `deal_pack_generated` to `ai_actions`
+- the response is structured for future PDF conversion and logs
+  `deal_pack_generated` to `ai_actions`
 
 ## Example: update-deal-stage
 
@@ -1353,10 +1626,14 @@ Response:
 ```
 
 Notes:
-- manual status transitions are validated against `active -> reviewing -> approved -> funded -> completed`
+
+- manual status transitions are validated against
+  `active -> reviewing -> approved -> funded -> completed`
 - the function still supports `new_stage` updates for existing callers
-- `auto_evaluate: true` can be used to promote a deal to `approved` when all linked tasks are complete
-- duplicate transition requests are returned as `success: true` with `skipped: true`
+- `auto_evaluate: true` can be used to promote a deal to `approved` when all
+  linked tasks are complete
+- duplicate transition requests are returned as `success: true` with
+  `skipped: true`
 
 ## Example: subscribe-deal-feed
 
@@ -1458,7 +1735,9 @@ Response:
 ```
 
 Duplicate handling notes:
-- if an open task with the same `deal_id` and `title` already exists, the function returns `success: true`, `skipped: true`, and `duplicate: true`
+
+- if an open task with the same `deal_id` and `title` already exists, the
+  function returns `success: true`, `skipped: true`, and `duplicate: true`
 - successful task creation increments `deal_performance.actions_taken`
 
 ## Example: agent-orchestrator
@@ -1506,8 +1785,12 @@ Response:
 ```
 
 Compatibility notes:
-- action-layer writes normalize legacy hosted `tasks` and `risks` schemas before returning results
-- `get-agent-rules` normalizes both current `action_schema` rows and legacy `allowed_action` / `conditions` rows into the same rule payload consumed by `rule-engine-agent`
+
+- action-layer writes normalize legacy hosted `tasks` and `risks` schemas before
+  returning results
+- `get-agent-rules` normalizes both current `action_schema` rows and legacy
+  `allowed_action` / `conditions` rows into the same rule payload consumed by
+  `rule-engine-agent`
 
 ## Example: test-agent
 
@@ -1605,9 +1888,11 @@ Response:
 POST `/functions/v1/financial-engine-agent`
 
 Validation notes:
+
 - `deal_id` must be a non-empty UUID
 - invalid or empty identifiers return `400`
-- resilience mode returns `success: true` with partial `data`, `warnings`, and preserved top-level fields when downstream or optional data is unavailable
+- resilience mode returns `success: true` with partial `data`, `warnings`, and
+  preserved top-level fields when downstream or optional data is unavailable
 
 Request:
 
@@ -1700,6 +1985,7 @@ Request:
 POST `/functions/v1/parcel-ranking-agent`
 
 Validation notes:
+
 - deal mode requires `deal_id` as a non-empty UUID
 - batch mode should omit `deal_id` and use `limit` / `only_unranked`
 - malformed deal IDs return `400` instead of falling through to batch mode
@@ -1758,11 +2044,14 @@ Batch compatibility request:
 POST `/functions/v1/deal-report-agent`
 
 Validation notes:
+
 - `deal_id` must be a non-empty UUID
 - malformed identifiers return `400`
 - unknown but well-formed deal IDs return `404`
 - `use_comparable_sales` is optional and defaults to `true`
-- resilience mode keeps report generation alive with partial `data`, `warnings`, and preserved top-level fields when downstream agents, optional database reads, or action logging fail
+- resilience mode keeps report generation alive with partial `data`, `warnings`,
+  and preserved top-level fields when downstream agents, optional database
+  reads, or action logging fail
 
 Request:
 
@@ -1889,6 +2178,8 @@ Response:
 - `/get-deal-funnel`
 - `/get-deal-reports`
 - `/get-top-deals`
+- `/investor-actions`
+- `/investor-outreach`
 - `/allocate-capital`
 - `/get-deal-context`
 - `/get-deal-timeline`

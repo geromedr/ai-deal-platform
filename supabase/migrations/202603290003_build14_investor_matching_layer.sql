@@ -157,17 +157,43 @@ latest_financial as (
 deal_profile as (
   select
     d.id as deal_id,
-    nullif(lower(btrim(coalesce(d.metadata ->> 'strategy', ''))), '') as deal_strategy,
-    d.state,
-    d.suburb,
+    nullif(lower(btrim(coalesce(
+      deal_data.deal_json ->> 'strategy',
+      deal_data.deal_json -> 'metadata' ->> 'strategy',
+      ''
+    ))), '') as deal_strategy,
+    nullif(btrim(coalesce(
+      deal_data.deal_json ->> 'state',
+      deal_data.deal_json -> 'metadata' ->> 'state',
+      ''
+    )), '') as state,
+    nullif(btrim(coalesce(
+      deal_data.deal_json ->> 'city',
+      deal_data.deal_json ->> 'suburb',
+      deal_data.deal_json -> 'metadata' ->> 'city',
+      deal_data.deal_json -> 'metadata' ->> 'suburb',
+      ''
+    )), '') as suburb,
     public.normalize_match_pct(
       coalesce(
+        public.safe_to_numeric(deal_data.deal_json ->> 'target_margin_pct'),
+        public.safe_to_numeric(deal_data.deal_json ->> 'target_margin'),
+        public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'target_margin_pct'),
+        public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'target_margin'),
         public.safe_to_numeric(lt.metadata ->> 'target_margin_pct'),
         public.safe_to_numeric(lt.metadata ->> 'target_margin'),
         public.safe_to_numeric(lf.metadata -> 'feasibility' ->> 'margin')
       )
     ) as deal_target_margin,
     coalesce(
+      public.safe_to_numeric(deal_data.deal_json ->> 'capital_target'),
+      public.safe_to_numeric(deal_data.deal_json ->> 'equity_required'),
+      public.safe_to_numeric(deal_data.deal_json ->> 'target_raise'),
+      public.safe_to_numeric(deal_data.deal_json ->> 'deal_size'),
+      public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'capital_target'),
+      public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'equity_required'),
+      public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'target_raise'),
+      public.safe_to_numeric(deal_data.deal_json -> 'metadata' ->> 'deal_size'),
       public.safe_to_numeric(lt.metadata ->> 'equity_required'),
       public.safe_to_numeric(lt.metadata ->> 'target_raise'),
       public.safe_to_numeric(lt.metadata ->> 'deal_size'),
@@ -176,6 +202,9 @@ deal_profile as (
       lf.amount
     ) as deal_size
   from public.deals d
+  cross join lateral (
+    select to_jsonb(d) as deal_json
+  ) as deal_data
   left join latest_terms lt
     on lt.deal_id = d.id
   left join latest_financial lf

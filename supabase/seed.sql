@@ -1,297 +1,264 @@
-insert into public.deals (
+begin;
+
+do $$
+declare
+  v_deal_id constant uuid := '11111111-1111-1111-1111-111111111111';
+  v_insert_columns text;
+  v_insert_values text;
+  v_update_clause text;
+begin
+  select
+    string_agg(format('%I', column_name), ', ' order by ordinal_position),
+    string_agg(
+      case column_name
+        when 'id' then quote_literal(v_deal_id::text)
+        when 'deal_name' then quote_literal('Validation Seed Deal')
+        when 'address' then quote_literal('12 Marine Parade')
+        when 'city' then quote_literal('Kingscliff')
+        when 'state' then quote_literal('NSW')
+        when 'postcode' then quote_literal('2487')
+        when 'country' then quote_literal('Australia')
+        when 'strategy' then quote_literal('hold-and-develop')
+        when 'target_margin' then '0.18'
+        when 'site_area' then '1200'
+      end,
+      ', ' order by ordinal_position
+    ),
+    string_agg(
+      case
+        when column_name = 'id' then null
+        else format('%1$I = excluded.%1$I', column_name)
+      end,
+      ', ' order by ordinal_position
+    )
+  into v_insert_columns, v_insert_values, v_update_clause
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'deals'
+    and column_name in (
+      'id',
+      'deal_name',
+      'address',
+      'city',
+      'state',
+      'postcode',
+      'country',
+      'strategy',
+      'target_margin',
+      'site_area'
+    );
+
+  if v_insert_columns is null or position('id' in v_insert_columns) = 0 then
+    raise exception 'public.deals is missing required id column';
+  end if;
+
+  execute format(
+    'insert into public.deals (%s) values (%s) on conflict (id) do update set %s',
+    v_insert_columns,
+    v_insert_values,
+    coalesce(v_update_clause, 'id = excluded.id')
+  );
+end
+$$;
+
+insert into public.investors (
   id,
-  address,
-  suburb,
-  state,
-  postcode,
+  investor_name,
+  investor_type,
+  capital_min,
+  capital_max,
+  preferred_strategies,
+  risk_profile,
+  preferred_states,
+  preferred_suburbs,
+  min_target_margin_pct,
   status,
-  stage,
-  source,
-  metadata
-)
-values (
-  '11111111-1111-1111-1111-111111111111',
-  '12 Marine Parade, Kingscliff NSW 2487',
-  'Kingscliff',
-  'NSW',
-  '2487',
-  'active',
-  'opportunity',
-  'seed',
-  '{"label":"Primary integration test deal"}'::jsonb
-)
-on conflict (id) do update
-set
-  address = excluded.address,
-  suburb = excluded.suburb,
-  state = excluded.state,
-  postcode = excluded.postcode,
-  status = excluded.status,
-  stage = excluded.stage,
-  source = excluded.source,
-  metadata = excluded.metadata,
-  updated_at = now();
-
-insert into public.site_intelligence (
-  deal_id,
-  address,
-  latitude,
-  longitude,
-  zoning,
-  lep,
-  height_limit,
-  fsr,
-  site_area,
-  flood_risk,
-  estimated_gfa,
-  estimated_units,
-  estimated_revenue,
-  estimated_build_cost,
-  estimated_profit
-)
-values (
-  '11111111-1111-1111-1111-111111111111',
-  '12 Marine Parade, Kingscliff NSW 2487',
-  -28.2580000,
-  153.5750000,
-  'R3 Medium Density Residential',
-  'Tweed Local Environmental Plan 2014',
-  '13m',
-  '1.8:1',
-  1200,
-  'Low',
-  2160,
-  24,
-  23760000,
-  9072000,
-  14688000
-)
-on conflict (deal_id) do update
-set
-  address = excluded.address,
-  latitude = excluded.latitude,
-  longitude = excluded.longitude,
-  zoning = excluded.zoning,
-  lep = excluded.lep,
-  height_limit = excluded.height_limit,
-  fsr = excluded.fsr,
-  site_area = excluded.site_area,
-  flood_risk = excluded.flood_risk,
-  estimated_gfa = excluded.estimated_gfa,
-  estimated_units = excluded.estimated_units,
-  estimated_revenue = excluded.estimated_revenue,
-  estimated_build_cost = excluded.estimated_build_cost,
-  estimated_profit = excluded.estimated_profit,
-  updated_at = now();
-
-insert into public.email_threads (
-  id,
-  deal_id,
-  subject,
-  participants,
-  last_message_at
-)
-values (
-  '22222222-2222-2222-2222-222222222222',
-  '11111111-1111-1111-1111-111111111111',
-  'Potential development site',
-  'agent@example.com',
-  '2026-03-19T09:00:00Z'
-)
-on conflict (id) do update
-set
-  subject = excluded.subject,
-  participants = excluded.participants,
-  last_message_at = excluded.last_message_at,
-  updated_at = now();
-
-insert into public.communications (
-  deal_id,
-  thread_id,
-  sender,
-  recipients,
-  subject,
-  message_summary,
-  body,
-  direction,
-  sent_at
-)
-values (
-  '11111111-1111-1111-1111-111111111111',
-  '22222222-2222-2222-2222-222222222222',
-  'agent@example.com',
-  'deals@example.com',
-  'Potential development site',
-  'Agent shared a medium-density coastal site for review.',
-  'Please review the site and confirm zoning, planning constraints, and pricing assumptions.',
-  'inbound',
-  '2026-03-19T09:00:00Z'
-)
-on conflict do nothing;
-
-insert into public.tasks (
-  deal_id,
-  title,
-  description,
-  assigned_to,
-  due_date,
-  status
-)
-values (
-  '11111111-1111-1111-1111-111111111111',
-  'Review zoning controls',
-  'Confirm zoning, FSR, and height controls for the subject site.',
-  'acquisitions',
-  '2026-03-29',
-  'open'
-)
-on conflict do nothing;
-
-insert into public.financial_snapshots (
-  deal_id,
-  category,
-  amount,
-  gdv,
-  tdc,
   notes
-)
-values (
-  '11111111-1111-1111-1111-111111111111',
-  'feasibility',
-  14688000,
-  23760000,
-  9072000,
-  'Seed feasibility snapshot for agent testing.'
-)
-on conflict do nothing;
-
-insert into public.comparable_sales_estimates (
-  id,
-  deal_id,
-  subject_address,
-  suburb,
-  state,
-  postcode,
-  radius_km,
-  dwelling_type,
-  estimated_sale_price_per_sqm,
-  currency,
-  rationale,
-  model_name,
-  knowledge_context,
-  raw_output,
-  status
-)
-values (
-  '33333333-3333-3333-3333-333333333333',
-  '11111111-1111-1111-1111-111111111111',
-  '12 Marine Parade, Kingscliff NSW 2487',
-  'Kingscliff',
-  'NSW',
-  '2487',
-  5,
-  'apartment',
-  12500,
-  'AUD',
-  'Seed comparable pricing for local feasibility validation.',
-  'seed-data',
-  '[]'::jsonb,
-  '{"source":"seed"}'::jsonb,
-  'completed'
-)
-on conflict (id) do update
-set
-  deal_id = excluded.deal_id,
-  subject_address = excluded.subject_address,
-  suburb = excluded.suburb,
-  state = excluded.state,
-  postcode = excluded.postcode,
-  radius_km = excluded.radius_km,
-  dwelling_type = excluded.dwelling_type,
-  estimated_sale_price_per_sqm = excluded.estimated_sale_price_per_sqm,
-  currency = excluded.currency,
-  rationale = excluded.rationale,
-  model_name = excluded.model_name,
-  knowledge_context = excluded.knowledge_context,
-  raw_output = excluded.raw_output,
-  status = excluded.status,
-  updated_at = now();
-
-insert into public.risks (
-  deal_id,
-  title,
-  description,
-  severity,
-  status
-)
-values (
-  '11111111-1111-1111-1111-111111111111',
-  'Flood planning review',
-  'Confirm whether coastal flooding overlays create design or floor-level constraints.',
-  'medium',
-  'open'
-)
-on conflict do nothing;
-
-insert into public.milestones (
-  deal_id,
-  title,
-  due_date,
-  status
-)
-values (
-  '11111111-1111-1111-1111-111111111111',
-  'Complete initial feasibility review',
-  '2026-04-05',
-  'pending'
-)
-on conflict do nothing;
-
-insert into public.agent_action_rules (
-  agent_name,
-  stage,
-  rule_description,
-  action_schema
 )
 values
   (
-    'ai-agent',
-    'opportunity',
-    'Allow AI to recommend tasks, risk logs, communications, stage updates, milestones, and financial snapshots during early deal review.',
-    '{"allowed_actions":["task_create","risk_log","log_communication","deal_stage_update","milestone_create","financial_snapshot_add"]}'::jsonb
+    '22222222-2222-2222-2222-222222222222',
+    'Harbour Capital',
+    'fund',
+    1000000,
+    5000000,
+    array['hold-and-develop'],
+    'opportunistic',
+    array['NSW'],
+    array['Kingscliff'],
+    18,
+    'active',
+    'Seed investor for validation.'
   ),
   (
-    'agent-orchestrator',
-    'opportunity',
-    'Execute structured actions returned by ai-agent for active opportunity-stage deals.',
-    '{"allowed_actions":["task_create","risk_log","log_communication","deal_stage_update","milestone_create","financial_snapshot_add"]}'::jsonb
-  ),
-  (
-    'rule-engine-agent',
-    'post-ranking',
-    'Evaluate post-ranking orchestration rules and trigger downstream agents in priority order.',
-    '{"rules":[{"name":"generate-report-for-a-tier-sites","event":"post-ranking","condition":"score >= 75","action":"deal-report-agent","priority":1}]}'::jsonb
-  ),
-  (
-    'rule-engine-agent',
-    'post-intelligence',
-    'Run deeper analysis or log risks after planning intelligence completes.',
-    '{"rules":[{"name":"high-density-follow-up","event":"post-intelligence","condition":"zoning_density == \"high-density\"","action":"create-task","priority":1,"payload":{"title":"Run deeper high-density analysis","description":"High-density zoning detected during post-intelligence orchestration. Review planning controls, comparable evidence, and downstream feasibility assumptions.","assigned_to":"acquisitions"}},{"name":"high-flood-risk-log","event":"post-intelligence","condition":"flood_risk != null AND flood_risk == \"High\"","action":"agent-orchestrator","priority":2,"payload":{"summary":"Log flood risk raised by post-intelligence rule.","actions":[{"action":"risk_log","details":{"title":"High flood risk identified","description":"Post-intelligence rule detected a high flood risk classification and escalated the site for review.","severity":"high"}}]}}]}'::jsonb
-  ),
-  (
-    'rule-engine-agent',
-    'post-discovery',
-    'Reserved workflow slot for post-discovery orchestration rules.',
-    '{"rules":[]}'::jsonb
-  ),
-  (
-    'rule-engine-agent',
-    'post-financial',
-    'Trigger reporting for strong margins and log risks for weak margins.',
-    '{"rules":[{"name":"strong-margin-report","event":"post-financial","condition":"financials != null AND financials > 0.2","action":"deal-report-agent","priority":1},{"name":"thin-margin-risk-log","event":"post-financial","condition":"financials != null AND financials < 0.1","action":"agent-orchestrator","priority":2,"payload":{"summary":"Log thin-margin feasibility risk.","actions":[{"action":"risk_log","details":{"title":"Thin development margin","description":"Post-financial rule detected margin below 10 percent and logged a risk for acquisitions review.","severity":"medium"}}]}}]}'::jsonb
+    '33333333-3333-3333-3333-333333333333',
+    'Coastline Family Office',
+    'family_office',
+    500000,
+    2500000,
+    array['hold-and-develop'],
+    'balanced',
+    array['NSW'],
+    array[]::text[],
+    15,
+    'active',
+    'Secondary seed investor for validation.'
   )
-on conflict (agent_name, stage) do update
+on conflict (id) do update
 set
-  rule_description = excluded.rule_description,
-  action_schema = excluded.action_schema,
-  updated_at = now();
+  investor_name = excluded.investor_name,
+  investor_type = excluded.investor_type,
+  capital_min = excluded.capital_min,
+  capital_max = excluded.capital_max,
+  preferred_strategies = excluded.preferred_strategies,
+  risk_profile = excluded.risk_profile,
+  preferred_states = excluded.preferred_states,
+  preferred_suburbs = excluded.preferred_suburbs,
+  min_target_margin_pct = excluded.min_target_margin_pct,
+  status = excluded.status,
+  notes = excluded.notes;
+
+insert into public.deal_investors (
+  id,
+  deal_id,
+  investor_id,
+  relationship_stage,
+  notes
+)
+values
+  (
+    '44444444-4444-4444-4444-444444444444',
+    '11111111-1111-1111-1111-111111111111',
+    '22222222-2222-2222-2222-222222222222',
+    'new',
+    'Seed relationship for validation.'
+  ),
+  (
+    '55555555-5555-5555-5555-555555555555',
+    '11111111-1111-1111-1111-111111111111',
+    '33333333-3333-3333-3333-333333333333',
+    'interested',
+    'Seed relationship for validation.'
+  )
+on conflict (deal_id, investor_id) do update
+set
+  relationship_stage = excluded.relationship_stage,
+  notes = excluded.notes;
+
+insert into public.deal_terms (
+  id,
+  deal_id,
+  sponsor_fee_pct,
+  equity_split,
+  preferred_return_pct,
+  notes
+)
+values (
+  '66666666-6666-6666-6666-666666666666',
+  '11111111-1111-1111-1111-111111111111',
+  2,
+  '{"investor_pct": 80, "sponsor_pct": 20}'::jsonb,
+  8,
+  'Seed terms for validation.'
+)
+on conflict (deal_id) do update
+set
+  sponsor_fee_pct = excluded.sponsor_fee_pct,
+  equity_split = excluded.equity_split,
+  preferred_return_pct = excluded.preferred_return_pct,
+  notes = excluded.notes;
+
+insert into public.investor_deal_pipeline (
+  id,
+  deal_id,
+  investor_id,
+  pipeline_status,
+  last_contacted_at,
+  next_follow_up_at,
+  notes
+)
+values
+  (
+    '77777777-7777-7777-7777-777777777777',
+    '11111111-1111-1111-1111-111111111111',
+    '22222222-2222-2222-2222-222222222222',
+    'new',
+    '2026-03-20T09:00:00Z',
+    '2026-04-03T09:00:00Z',
+    'Initial outreach queued.'
+  ),
+  (
+    '88888888-8888-8888-8888-888888888888',
+    '11111111-1111-1111-1111-111111111111',
+    '33333333-3333-3333-3333-333333333333',
+    'interested',
+    '2026-03-22T11:00:00Z',
+    '2026-04-05T11:00:00Z',
+    'Investor requested more detail.'
+  )
+on conflict (deal_id, investor_id) do update
+set
+  pipeline_status = excluded.pipeline_status,
+  last_contacted_at = excluded.last_contacted_at,
+  next_follow_up_at = excluded.next_follow_up_at,
+  notes = excluded.notes;
+
+insert into public.investor_communications (
+  id,
+  investor_id,
+  deal_id,
+  communication_type,
+  direction,
+  subject,
+  summary,
+  status,
+  communicated_at
+)
+values (
+  '99999999-9999-9999-9999-999999999999',
+  '33333333-3333-3333-3333-333333333333',
+  '11111111-1111-1111-1111-111111111111',
+  'email',
+  'outbound',
+  'Validation seed outreach',
+  'Seed outreach logged for deal context validation.',
+  'sent',
+  '2026-03-22T11:00:00Z'
+)
+on conflict (id) do update
+set
+  investor_id = excluded.investor_id,
+  deal_id = excluded.deal_id,
+  communication_type = excluded.communication_type,
+  direction = excluded.direction,
+  subject = excluded.subject,
+  summary = excluded.summary,
+  status = excluded.status,
+  communicated_at = excluded.communicated_at;
+
+insert into public.deal_capital_allocations (
+  id,
+  deal_id,
+  investor_id,
+  committed_amount,
+  allocation_pct,
+  status,
+  notes
+)
+values (
+  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  '11111111-1111-1111-1111-111111111111',
+  '33333333-3333-3333-3333-333333333333',
+  750000,
+  25,
+  'soft_commit',
+  'Seed soft commitment for validation.'
+)
+on conflict (deal_id, investor_id) do update
+set
+  committed_amount = excluded.committed_amount,
+  allocation_pct = excluded.allocation_pct,
+  status = excluded.status,
+  notes = excluded.notes;
+
+commit;
