@@ -4,7 +4,7 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$commitMessage = 'feat: investor outreach engine + action system complete'
+$commitMessage = 'chore: sync latest system state'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
 Push-Location $repoRoot
@@ -21,26 +21,27 @@ try {
     }
 
     Write-Host ''
-    Write-Host '== Staging all tracked and untracked changes =='
+    Write-Host '== Staging all changes =='
     & git add --all
     if ($LASTEXITCODE -ne 0) {
         throw 'Failed to stage changes with git add --all.'
     }
 
-    & git diff --cached --quiet --exit-code
+    Write-Host ''
+    Write-Host '== Checking for staged changes =='
+    & git diff --cached --quiet
     $hasStagedChanges = ($LASTEXITCODE -ne 0)
 
-    if ($hasStagedChanges) {
-        Write-Host ''
-        Write-Host "== Creating commit: $commitMessage =="
-        & git commit -m $commitMessage
-        if ($LASTEXITCODE -ne 0) {
-            throw 'git commit failed.'
-        }
+    if (-not $hasStagedChanges) {
+        Write-Host 'No changes to commit'
+        exit 0
     }
-    else {
-        Write-Host ''
-        Write-Host '== Nothing to commit after staging. Skipping commit =='
+
+    Write-Host ''
+    Write-Host "== Creating commit: $commitMessage =="
+    & git commit -m $commitMessage
+    if ($LASTEXITCODE -ne 0) {
+        throw 'git commit failed.'
     }
 
     Write-Host ''
@@ -56,6 +57,11 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'Failed to read final git status.'
     }
+}
+catch {
+    Write-Host ''
+    Write-Host "Git sync failed: $($_.Exception.Message)"
+    exit 1
 }
 finally {
     Pop-Location

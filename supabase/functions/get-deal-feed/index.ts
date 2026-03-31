@@ -21,6 +21,11 @@ type GetDealFeedRequest = {
   user_id?: string;
 };
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+};
+
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
@@ -81,6 +86,10 @@ function isUuid(value: string) {
 }
 
 serve(createAgentHandler({ agentName: "get-deal-feed" }, async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
@@ -398,7 +407,7 @@ serve(createAgentHandler({ agentName: "get-deal-feed" }, async (req) => {
       }
     }
 
-    return jsonResponse({
+    const result = {
       success: true,
       limit,
       filters: {
@@ -410,6 +419,13 @@ serve(createAgentHandler({ agentName: "get-deal-feed" }, async (req) => {
       sort_by: sortBy,
       items: visibleItems,
       warnings,
+    };
+
+    return new Response(JSON.stringify(result), {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "application/json",
+      },
     });
   } catch (error) {
     console.error("get-deal-feed failed", error);
