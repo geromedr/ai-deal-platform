@@ -20,7 +20,7 @@ export default function DealFeed() {
 
     try {
       const data = await getDealFeed();
-      console.log("DEALS STATE:", data);
+      console.log("DEALS:", data);
       setDeals(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load deals.";

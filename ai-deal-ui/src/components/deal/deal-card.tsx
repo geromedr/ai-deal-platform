@@ -1,3 +1,7 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,10 +32,14 @@ function getValueLabel(deal: DealFeedItem) {
 }
 
 export function DealCard({ deal }: DealCardProps) {
+  const router = useRouter();
   const valueLabel = getValueLabel(deal);
 
   return (
-    <Card className="border-border/70 bg-card/95 shadow-sm">
+    <Card
+      className="cursor-pointer border-border/70 bg-card/95 shadow-sm transition hover:shadow-lg"
+      onClick={() => router.push(`/deal/${deal.deal_id}`)}
+    >
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
@@ -71,11 +79,21 @@ export function DealCard({ deal }: DealCardProps) {
           Action hooks ready for workflow wiring.
         </span>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm">Approve</Button>
-          <Button size="sm" variant="secondary">
+          <Button size="sm" onClick={(event) => event.stopPropagation()}>
+            Approve
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={(event) => event.stopPropagation()}
+          >
             Allocate
           </Button>
-          <Button size="sm" variant="ghost">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={(event) => event.stopPropagation()}
+          >
             View
           </Button>
         </div>

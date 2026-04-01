@@ -11,31 +11,19 @@ export type DealFeedItem = {
 };
 
 export async function getDealFeed(): Promise<DealFeedItem[]> {
-  console.log("CALLING DEAL FEED");
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL + "/functions/v1/get-deal-feed";
-  console.log("URL:", url);
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      Authorization: "Bearer " + process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  const res = await fetch(
+    process.env.NEXT_PUBLIC_SUPABASE_URL + "/functions/v1/get-deal-feed",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        Authorization: "Bearer " + process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ limit: 20 }),
     },
-    body: JSON.stringify({ limit: 20 }),
-  });
+  );
 
-  console.log("STATUS:", res.status);
-
-  const text = await res.text();
-  console.log("RAW RESPONSE:", text);
-
-  try {
-    const json = JSON.parse(text) as { items?: DealFeedItem[] };
-    return json.items || [];
-  } catch (e) {
-    console.error("JSON PARSE ERROR");
-    return [];
-  }
+  const json = (await res.json()) as { items?: DealFeedItem[] };
+  return json.items || [];
 }
