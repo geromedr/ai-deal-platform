@@ -57,6 +57,13 @@ Updates deal stage and deal status for an existing deal, validates lifecycle
 transitions, supports automatic task-completion evaluation, and deduplicates
 transition audit logging in `ai_actions`.
 
+### submit-decision
+
+Accepts a client-submitted `BUY`, `REVIEW`, or `PASS` decision for a single
+deal, validates the request, writes a pending decision audit row into
+`ai_actions`, and returns a structured success payload for the deal workspace
+UI.
+
 ## Communication
 
 ### email-agent

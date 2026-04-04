@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import DecisionHeader from "@/components/deal/decision-header";
 
 type RecordLike = Record<string, unknown>;
 
@@ -253,7 +254,7 @@ function DealWorkspaceState({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 sm:px-10">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition hover:bg-muted"
+          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-all outline-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <ArrowLeft className="size-4" />
           Back to dashboard
@@ -339,11 +340,23 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
   const score =
     firstNumber(deal, [
       "score",
+      "priority_score",
       "metadata.score",
       "metadata.priority_score",
       "metadata.ranking_score",
     ]) ??
-    firstNumber(latestFinancial, ["metadata.score"]);
+    firstNumber(latestFinancial, [
+      "metadata.score",
+      "metadata.priority_score",
+      "metadata.ranking_score",
+    ]) ??
+    0;
+  const confidence = firstNumber(deal, [
+    "confidence",
+    "metadata.confidence",
+    "metadata.confidence_score",
+    "metadata.analysis_confidence",
+  ]);
   const margin =
     firstNumber(latestFinancial, [
       "metadata.margin_pct",
@@ -435,12 +448,14 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
 
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition hover:bg-muted"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-sm font-medium whitespace-nowrap transition-all outline-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <ArrowLeft className="size-4" />
             Back to dashboard
           </Link>
         </div>
+
+        <DecisionHeader dealId={dealId} score={score} confidence={confidence} />
 
         <section className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
           <Card className="border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(205,220,57,0.18),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(244,241,233,0.92))] shadow-[0_24px_80px_-48px_rgba(48,57,36,0.55)]">

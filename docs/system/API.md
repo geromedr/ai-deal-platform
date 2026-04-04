@@ -1635,6 +1635,44 @@ Notes:
 - duplicate transition requests are returned as `success: true` with
   `skipped: true`
 
+## Example: submit-decision
+
+POST `/functions/v1/submit-decision`
+
+Validation notes:
+
+- `deal_id` must be a non-empty UUID for an existing deal
+- `decision` must be one of `BUY`, `REVIEW`, or `PASS`
+- the function writes a pending decision audit row into `ai_actions`
+
+Request:
+
+```json
+{
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "decision": "REVIEW"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "deal_id": "11111111-1111-1111-1111-111111111111",
+  "decision": "REVIEW",
+  "action_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "timestamp": "2026-04-05T00:00:00.000Z",
+  "message": "Decision submitted successfully"
+}
+```
+
+Notes:
+
+- CORS preflight allows `POST, OPTIONS`
+- the implementation inserts directly into `ai_actions` using the documented
+  `deal_id`, `agent`, `action`, and `payload` columns
+
 ## Example: subscribe-deal-feed
 
 POST `/functions/v1/subscribe-deal-feed`
@@ -2197,6 +2235,7 @@ Response:
 - `/subscribe-deal-feed`
 - `/update-deal-outcome`
 - `/update-deal-stage`
+- `/submit-decision`
 - `/site-intelligence-agent`
 - `/zoning-agent`
 - `/flood-agent`

@@ -62,6 +62,7 @@ Deal Management
 - generate-deal-report
 - generate-deal-pack
 - subscribe-deal-feed
+- submit-decision
 - deal-report-agent now builds structured investment summaries from deal,
   context, planning, yield, financial snapshot, comparable sales, and ranking
   data with fallback-safe human-readable output plus direct database fallbacks
@@ -71,6 +72,8 @@ Deal Management
 - internal-ops-dashboard now serves a lightweight operator UI for feed review,
   approvals, notifications, usage, health, retry queues, funnel metrics, and
   manual control actions
+- deal workspace decisions can now be submitted from the client via
+  `submit-decision`, which logs pending decision audit rows in `ai_actions`
 
 Investor And Capital Layer
 
