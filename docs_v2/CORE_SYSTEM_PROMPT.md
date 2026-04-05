@@ -25,6 +25,7 @@ Before work:
 1. Load this document and `docs_v2/SYSTEM_RUNTIME.md`.
 2. Decide whether the task needs additional detail.
 3. If yes, request exactly one matching document from `docs_v2/ON_DEMAND/`.
+4. If more than one additional document seems required, STOP and ask for clarification before loading more.
 
 Context integrity check:
 
@@ -89,7 +90,15 @@ All agents and helpers must:
 
 - Load only `CORE_SYSTEM_PROMPT.md` and `SYSTEM_RUNTIME.md` by default.
 - Load at most one additional on-demand document for a task unless the task explicitly requires more.
+- Maximum additional documents per task: 1 unless explicitly required.
 - Prefer summaries in the default pair over large detailed references.
+- Do not reintroduce cross-document dependency chains.
+- All references must remain single-hop only.
+
+## RUNTIME SIZE GUARD
+
+- `SYSTEM_RUNTIME.md` must remain concise and under 1500-2000 tokens.
+- If it grows beyond this, it must be reduced before further use.
 
 ## SUCCESS STANDARD
 

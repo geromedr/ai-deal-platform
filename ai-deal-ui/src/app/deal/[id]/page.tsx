@@ -376,6 +376,7 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
       "metadata.name",
       "address",
     ]) ?? `Deal ${dealId.slice(0, 8)}`;
+  const dealStage = firstString(deal, ["stage"]);
 
   const summary = buildSummary(deal, latestFinancial, risks.length);
   const score =
@@ -470,6 +471,12 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
   const capitalTarget = firstNumber(capitalSummary, ["capital_target"]);
   const totalCommitted = firstNumber(capitalSummary, ["total_committed"]);
   const remainingCapital = firstNumber(capitalSummary, ["remaining_capital"]);
+  const stageBadgeClass =
+    dealStage === "active"
+      ? "bg-green-200 text-green-800"
+      : dealStage === "archived"
+        ? "bg-gray-200 text-gray-700"
+        : "bg-gray-100 text-gray-700";
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,_#f6f4eb_0%,_#f2efe6_32%,_#ece8de_100%)]">
@@ -479,6 +486,13 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
             <Badge variant="outline" className="bg-background/70">
               Deal Workspace
             </Badge>
+            {dealStage ? (
+              <div className="inline-flex">
+                <span className={`rounded px-2 py-1 text-xs ${stageBadgeClass}`}>
+                  {dealStage}
+                </span>
+              </div>
+            ) : null}
             <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               {dealName}
             </h1>

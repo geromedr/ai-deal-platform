@@ -113,6 +113,10 @@ serve(async (req) => {
       throw new Error(error.message);
     }
 
+    if (body.decision === 'BUY') {
+      await supabase.from('deals').update({ stage: 'active' }).eq('id', body.deal_id);
+    }
+
     if (decision === "PASS") {
       const { error: archiveError } = await supabase
         .from("deals")

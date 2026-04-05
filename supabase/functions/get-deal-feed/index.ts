@@ -151,7 +151,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
   let query = supabase
     .from("deal_feed")
     .select(
-      "deal_id, score, priority_score, trigger_event, summary, created_at, status, metadata",
+      "deal_id, score, priority_score, trigger_event, summary, created_at, status, metadata, deals!inner(stage)",
     )
     .limit(sortBy === "priority_score" ? MAX_LIMIT : limit);
 
@@ -164,6 +164,8 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
   } else {
     query = query.neq("status", "archived");
   }
+
+  query = query.neq("deals.stage", "archived");
 
   query = query.order("created_at", { ascending: false });
 
