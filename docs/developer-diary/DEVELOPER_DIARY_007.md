@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Developer Diary
 ### Entry 007 - Capital Visibility Layer for UI-Ready Deal Raise Context
 
@@ -302,3 +305,4 @@ The important outcome here is not more capital logic.
 It is better capital readability.
 
 The platform now has a thin derived layer that turns existing investor and commitment data into a UI-ready capital picture, which is exactly what the next UX phase needs.
+

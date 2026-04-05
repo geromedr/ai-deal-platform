@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 
 # DEVELOPER_DIARY 001.md
 
@@ -248,3 +251,4 @@ Next phase:
 - enable AI‑assisted Supabase development
 
 The goal remains to build a **fully autonomous property development intelligence platform capable of identifying and analysing development opportunities across NSW**.
+

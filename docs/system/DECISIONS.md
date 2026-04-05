@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Architecture Decisions
 
 ## Agent Architecture
@@ -43,3 +46,4 @@ Reason:
 - avoids overloading financial snapshot records
 - preserves estimate history for each deal
 - supports normalized comparable evidence rows with JSONB context
+

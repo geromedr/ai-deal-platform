@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # System Architecture
 
 The AI Deal Platform uses a modular Supabase Edge Function architecture with
@@ -148,3 +151,4 @@ Uses stage-completion events to drive downstream orchestration rules.
 - Extensible
 - Data-driven
 - AI-assisted
+

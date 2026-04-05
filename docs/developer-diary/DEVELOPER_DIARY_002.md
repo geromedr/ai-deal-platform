@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Developer Diary  
 ### Entry 002 — AI Integration & First Fully AI-Built Agent
 
@@ -233,3 +236,4 @@ AI executes implementation
 The system evolves rapidly  
 
 This marks the beginning of a **true AI-assisted engineering workflow**, where development is no longer constrained by manual coding speed.
+

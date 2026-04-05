@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # AI SYSTEM PROMPT  QUOTA OPTIMISED BUILD MODE
 
 ## CORE PRINCIPLE
@@ -153,3 +156,4 @@ HIGH EFFICIENCY MODE
  Minimum tokens
  Maximum output
  No wasted work
+

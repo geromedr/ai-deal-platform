@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # SYSTEM INTELLIGENCE REPORT
 
 ## 1. SYSTEM OVERVIEW
@@ -884,3 +887,4 @@
 - Operator Dashboard
 - Usage / Health
 - Knowledge Manager
+

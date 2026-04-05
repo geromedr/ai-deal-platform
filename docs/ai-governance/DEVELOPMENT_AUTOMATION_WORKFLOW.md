@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # DEVELOPMENT_AUTOMATION_WORKFLOW.md
 
 ## Purpose
@@ -143,3 +146,4 @@ Eventually ChatGPT will be able to:
 • orchestrate development tasks across tools  
 
 The developer remains the **final authority** over system direction.
+

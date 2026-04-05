@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Project State
 
 Tracks current platform capabilities.
@@ -260,3 +263,4 @@ Automated Feasibility Reports\
 Investor Deal Feed Workflow
 
 Estimated completion: **65–70%**
+

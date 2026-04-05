@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Developer Diary  
 ### Entry 004 — Hardening the System & Transition to Production-Ready Architecture
 
@@ -171,3 +174,4 @@ You are building a system that:
 - adapts
 - continues under failure
 - produces actionable intelligence
+

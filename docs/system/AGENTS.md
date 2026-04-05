@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Agent Catalogue
 
 This document lists all system agents.
@@ -360,3 +363,4 @@ available.
 
 Returns system rules and allowed actions for a given stage, normalizing both
 current and legacy hosted `agent_action_rules` schemas.
+

@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Developer Diary
 ### Entry 006 - Rule-Driven Orchestration, Hosted Compatibility, and Context-Aware Dedupe
 
@@ -301,3 +304,4 @@ The platform now has a cleaner persistence path for end-to-end site intelligence
 - orchestration continues without regression while migration rollout catches up
 
 This is a small change at the schema layer, but an important one for making orchestration outputs durable, inspectable, and consistent across local and hosted environments.
+

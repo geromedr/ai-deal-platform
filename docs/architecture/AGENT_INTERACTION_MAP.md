@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Agent Interaction Map
 
 This document describes how agents interact in the AI Deal Platform pipeline.
@@ -27,3 +30,4 @@ ranked development opportunities
 
 Purpose:
 Provide a quick reference for how data moves between agents.
+

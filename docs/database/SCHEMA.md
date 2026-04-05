@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # DATABASE SCHEMA REGISTRY
 
 This document is the source of truth for agent-facing database schema in this repository.
@@ -852,3 +855,4 @@ Creates or updates the single CRM pipeline row for a given deal and investor, ke
 ### upsert_deal_capital_allocation(p_deal_id uuid, p_investor_id uuid, p_committed_amount numeric default 0, p_allocation_pct numeric default null, p_status text default 'proposed', p_notes text default null, p_metadata jsonb default '{}'::jsonb)
 
 Creates or updates the single investor commitment row for a given deal and investor, keeping capital commitment tracking deterministic and additive to `deal_terms` and `investor_deal_pipeline`.
+

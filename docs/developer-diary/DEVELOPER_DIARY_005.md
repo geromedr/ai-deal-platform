@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # Developer Diary  
 ### Entry 005 — Hosted Stabilisation & Production Alignment
 
@@ -257,3 +260,4 @@ You are no longer building a system that *can* work.
 You are now building a system that *does* work — reliably, consistently, and at scale.
 
 That is the difference between experimentation and execution.
+

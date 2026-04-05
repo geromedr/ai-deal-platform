@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # SUPABASE_WORKFLOWS.md
 
 Referenced by:
@@ -155,3 +158,4 @@ create table comparable_sales (
 );
 
 4. Update documentation if needed
+

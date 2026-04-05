@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # AI_BUILD_RULES.md
 
 # AI Build Rules
@@ -127,3 +130,4 @@ The developer remains responsible for:
 • final design decisions  
 • approving high-risk changes  
 • long-term product direction  
+

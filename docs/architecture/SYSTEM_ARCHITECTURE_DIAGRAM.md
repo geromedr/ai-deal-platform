@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # SYSTEM_ARCHITECTURE_DIAGRAM.md
 
 ## AI Deal Platform -- System Architecture
@@ -229,3 +232,4 @@ This document serves as a visual reference for the system architecture and shoul
 - new agents are added
 - major pipelines change
 - infrastructure architecture evolves
+

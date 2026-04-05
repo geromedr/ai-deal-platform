@@ -1,3 +1,6 @@
+DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
+This file is retained for compatibility and historical reference.
+
 # USER MANUAL RAW
 
 This document is derived from the current repository state, documented schema, and implemented Supabase Edge Functions. It describes the deployed system shape represented by the codebase as of the current checkout. Where behavior differs between write-time and read-time paths, both are called out explicitly.
@@ -805,3 +808,4 @@ The following capabilities are not shown as autonomous schedulers in the current
 - approval reviews
 - deal outcome updates
 - deal stage transitions
+
