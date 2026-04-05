@@ -113,6 +113,47 @@ serve(async (req) => {
       throw new Error(error.message);
     }
 
+    if (decision === "PASS") {
+      const { error: archiveError } = await supabase
+        .from("deals")
+        .update({ stage: "archived" })
+        .eq("id", dealId);
+
+      if (archiveError) {
+        throw new Error(archiveError.message);
+      }
+    }
+
+    const taskTitle = decision === "REVIEW"
+      ? "Review deal details"
+      : "Review and progress deal";
+
+    const { data: existingPendingTasks, error: existingTaskError } = await supabase
+      .from("tasks")
+      .select("id")
+      .eq("deal_id", body.deal_id)
+      .eq("title", taskTitle)
+      .eq("status", "pending")
+      .limit(1);
+
+    if (existingTaskError) {
+      throw new Error(existingTaskError.message);
+    }
+
+    if (!existingPendingTasks || existingPendingTasks.length === 0) {
+      const { error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          deal_id: body.deal_id,
+          title: taskTitle,
+          status: "pending",
+        });
+
+      if (taskError) {
+        throw new Error(taskError.message);
+      }
+    }
+
     console.log("DECISION RECORDED", data);
 
     return jsonResponse({

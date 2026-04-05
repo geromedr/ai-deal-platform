@@ -19,8 +19,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import DecisionHeader from "@/components/deal/decision-header";
+import { supabase } from "@/lib/supabase";
 
 type RecordLike = Record<string, unknown>;
+type CurrentDecision = "BUY" | "REVIEW" | "PASS" | null;
 
 type DealContext = {
   deal?: RecordLike | null;
@@ -238,6 +240,42 @@ async function getDealContext(dealId: string): Promise<DealContext> {
   }
 }
 
+async function getDealTasks(dealId: string): Promise<RecordLike[]> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("deal_id", dealId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return [];
+  }
+
+  return asRecordArray(data);
+}
+
+async function getLatestDecision(dealId: string): Promise<CurrentDecision> {
+  const { data, error } = await supabase
+    .from("ai_actions")
+    .select("payload")
+    .eq("deal_id", dealId)
+    .eq("action", "deal_decision")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return null;
+  }
+
+  const payload = asRecord(data)?.payload;
+  const decision = asString(asRecord(payload)?.decision);
+
+  return decision === "BUY" || decision === "REVIEW" || decision === "PASS"
+    ? decision
+    : null;
+}
+
 function DealWorkspaceState({
   title,
   description,
@@ -303,6 +341,9 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
       />
     );
   }
+
+  const dealTasks = await getDealTasks(dealId);
+  const currentDecision = await getLatestDecision(dealId);
 
   const deal = asRecord(data.deal);
   const tasks = asRecordArray(data.tasks);
@@ -455,7 +496,27 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
           </Link>
         </div>
 
-        <DecisionHeader dealId={dealId} score={score} confidence={confidence} />
+        <DecisionHeader
+          dealId={dealId}
+          score={score}
+          confidence={confidence}
+          currentDecision={currentDecision}
+        />
+
+        <section className="space-y-2 text-sm">
+          <h2 className="font-semibold text-foreground">Tasks</h2>
+          {dealTasks.length > 0 ? (
+            dealTasks.map((task, index) => (
+              <div key={String(task.id ?? index)} className="text-muted-foreground">
+                <span className="text-foreground">{asString(task.title) ?? `Task ${index + 1}`}</span>
+                {" - "}
+                <span>{sentenceCase(asString(task.status) ?? "open")}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-muted-foreground">No tasks found.</p>
+          )}
+        </section>
 
         <section className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
           <Card className="border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(205,220,57,0.18),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(244,241,233,0.92))] shadow-[0_24px_80px_-48px_rgba(48,57,36,0.55)]">

@@ -61,8 +61,9 @@ transition audit logging in `ai_actions`.
 
 Accepts a client-submitted `BUY`, `REVIEW`, or `PASS` decision for a single
 deal, validates the request, writes a pending decision audit row into
-`ai_actions`, and returns a structured success payload for the deal workspace
-UI.
+`ai_actions`, archives the deal by setting `deals.stage` to `archived` when the
+decision is `PASS`, and returns a structured success payload for the deal
+workspace UI.
 
 ## Communication
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { submitDecision, type DealDecision } from "@/lib/api/submitDecision";
@@ -10,7 +11,12 @@ type DecisionHeaderProps = {
   dealId: string;
   score: number;
   confidence: number | null;
+  currentDecision?: DealDecision | null;
 };
+
+function getDecisionLabel(decision: DealDecision | null | undefined) {
+  return decision ? `Decision: ${decision}` : "Decision: Not set";
+}
 
 function getScoreTone(score: number) {
   if (score >= 80) {
@@ -53,7 +59,9 @@ export default function DecisionHeader({
   dealId,
   score,
   confidence,
+  currentDecision,
 }: DecisionHeaderProps) {
+  const router = useRouter();
   const scoreTone = getScoreTone(score);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,6 +79,7 @@ export default function DecisionHeader({
       });
 
       console.log("Decision submitted successfully", result);
+      router.refresh();
     } catch (error) {
       console.error("Failed to submit decision", {
         dealId,
@@ -113,30 +122,68 @@ export default function DecisionHeader({
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Button
-            className="h-12 px-6 text-base font-semibold text-white hover:bg-emerald-700"
-            disabled={isSubmitting}
-            onClick={() => void handleDecision("BUY")}
-            style={{ backgroundColor: "rgb(22 163 74)" }}
-          >
-            BUY
-          </Button>
-          <Button
-            className="h-12 px-6 text-base font-semibold text-slate-950 hover:bg-amber-400"
-            disabled={isSubmitting}
-            onClick={() => void handleDecision("REVIEW")}
-            style={{ backgroundColor: "rgb(250 204 21)" }}
-          >
-            REVIEW
-          </Button>
-          <Button
-            className="h-12 px-6 text-base font-semibold text-white hover:bg-rose-700"
-            disabled={isSubmitting}
-            onClick={() => void handleDecision("PASS")}
-            style={{ backgroundColor: "rgb(220 38 38)" }}
-          >
-            PASS
-          </Button>
+          <div className="space-y-3 lg:min-w-[22rem]">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              {getDecisionLabel(currentDecision)}
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button
+                className={cn(
+                  "h-12 border px-6 text-base font-semibold text-white transition-colors hover:bg-emerald-700",
+                  currentDecision === "BUY"
+                    ? "border-emerald-950 bg-emerald-700 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]"
+                    : "border-emerald-600/70",
+                )}
+                disabled={isSubmitting}
+                onClick={() => void handleDecision("BUY")}
+                style={{
+                  backgroundColor:
+                    currentDecision === "BUY"
+                      ? "rgb(21 128 61)"
+                      : "rgb(22 163 74)",
+                }}
+              >
+                BUY
+              </Button>
+              <Button
+                className={cn(
+                  "h-12 border px-6 text-base font-semibold text-slate-950 transition-colors hover:bg-amber-400",
+                  currentDecision === "REVIEW"
+                    ? "border-amber-950 bg-amber-300 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]"
+                    : "border-amber-500/80",
+                )}
+                disabled={isSubmitting}
+                onClick={() => void handleDecision("REVIEW")}
+                style={{
+                  backgroundColor:
+                    currentDecision === "REVIEW"
+                      ? "rgb(253 224 71)"
+                      : "rgb(250 204 21)",
+                }}
+              >
+                REVIEW
+              </Button>
+              <Button
+                className={cn(
+                  "h-12 border px-6 text-base font-semibold text-white transition-colors hover:bg-rose-700",
+                  currentDecision === "PASS"
+                    ? "border-rose-950 bg-rose-700 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]"
+                    : "border-rose-700/80",
+                )}
+                disabled={isSubmitting}
+                onClick={() => void handleDecision("PASS")}
+                style={{
+                  backgroundColor:
+                    currentDecision === "PASS"
+                      ? "rgb(190 18 60)"
+                      : "rgb(220 38 38)",
+                }}
+              >
+                PASS
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
