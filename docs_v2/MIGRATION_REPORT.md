@@ -78,6 +78,6 @@ Target effect:
 
 ## RISKS
 
-- prompt bootstrap still points to legacy docs until the changes listed in `REQUIRED_CHANGES.md` are applied
 - some nuanced endpoint and schema details remain only in legacy documents until or unless those details are further migrated
-- adding deprecation headers to legacy docs preserves compatibility but does not itself stop old prompts from loading them
+- legacy files still contain internal cross-references for compatibility and historical context, but they are no longer part of the default load path
+- backup copies under `docs_backup_original/` remain in-repo and should not be used as entrypoints

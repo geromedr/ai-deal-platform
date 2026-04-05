@@ -1,3 +1,4 @@
+DO NOT USE - replaced by docs_v2 system
 DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
 This file is retained for compatibility and historical reference.
 

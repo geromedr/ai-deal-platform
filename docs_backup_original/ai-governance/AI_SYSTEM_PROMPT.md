@@ -1,3 +1,5 @@
+DO NOT USE - replaced by docs_v2 system
+
 # AI SYSTEM PROMPT  QUOTA OPTIMISED BUILD MODE
 
 ## CORE PRINCIPLE

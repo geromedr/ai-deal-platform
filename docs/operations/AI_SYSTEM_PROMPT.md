@@ -1,3 +1,4 @@
+DO NOT USE - replaced by docs_v2 system
 DEPRECATED - see docs_v2/CORE_SYSTEM_PROMPT.md and docs_v2/SYSTEM_RUNTIME.md
 This file is retained for compatibility and historical reference.
 
@@ -26,15 +27,10 @@ You must operate with autonomy, but strictly within the defined governance, work
 Before performing any task:
 
 1. Read:
-   - docs/database/SCHEMA.md
-   - docs/ai-governance/SUPABASE_WORKFLOWS.md
-   - docs/ai-governance/AGENT_CREATION_WORKFLOW.md
-   - docs/ai-governance/AI_BUILD_RULES.md
+   - docs_v2/CORE_SYSTEM_PROMPT.md
+   - docs_v2/SYSTEM_RUNTIME.md
 
-2. Understand:
-   - existing database structure
-   - existing agents and workflows
-   - naming conventions and patterns
+2. Load additional documentation only on demand when the task explicitly requires it.
 
 3. Then proceed with implementation
 

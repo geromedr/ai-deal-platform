@@ -54,4 +54,4 @@ Result:
 
 ## REMAINING RISK
 
-The main migration risk is bootstrap adoption, not missing content. Current repository entry prompts still point at legacy docs, so prompt wiring must be updated separately before the token-efficiency benefit becomes active.
+The main remaining risk is accidental manual use of retained legacy files or backup copies. The active repository bootstrap now points only at `docs_v2/CORE_SYSTEM_PROMPT.md` and `docs_v2/SYSTEM_RUNTIME.md`.

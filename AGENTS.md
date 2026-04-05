@@ -1,13 +1,11 @@
 # AGENTS.md
 
-All AI systems working in this repository must follow:
+All AI systems working in this repository must load, in order:
 
-docs/operations/AI_SYSTEM_PROMPT.md
+- docs_v2/CORE_SYSTEM_PROMPT.md
+- docs_v2/SYSTEM_RUNTIME.md
 
-This document defines:
-- architecture
-- workflows
-- development rules
+These documents define the default behavioural contract and active runtime context.
 
-AI must read it and all referenced documents before performing any task.
+No legacy prompt or governance document is part of the default startup load.
 This startup read is mandatory for every task.

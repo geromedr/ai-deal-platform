@@ -6,16 +6,12 @@ Mapped current markdown references across the original `docs/` tree to identify 
 
 ## ENTRY POINT DOCS
 
-Primary entry point loaded by Codex:
-- `AGENTS.md` -> `docs/operations/AI_SYSTEM_PROMPT.md`
+Current default entry point:
+- `AGENTS.md` -> `docs_v2/CORE_SYSTEM_PROMPT.md`
+- `AGENTS.md` -> `docs_v2/SYSTEM_RUNTIME.md`
 
-Primary default-load bundle required by `docs/operations/AI_SYSTEM_PROMPT.md`:
-- `docs/database/SCHEMA.md`
-- `docs/ai-governance/SUPABASE_WORKFLOWS.md`
-- `docs/ai-governance/AGENT_CREATION_WORKFLOW.md`
-- `docs/ai-governance/AI_BUILD_RULES.md`
-
-Secondary legacy prompt:
+Legacy prompt files retained only for compatibility and historical reference:
+- `docs/operations/AI_SYSTEM_PROMPT.md`
 - `docs/ai-governance/AI_SYSTEM_PROMPT.md`
 
 ## HIGH-COST DOCS
@@ -30,7 +26,7 @@ Largest current docs by size:
 
 These large files are not all loaded directly by the entry prompt, but the governance chain strongly encourages loading several of them during normal execution.
 
-## DIRECT REFERENCE GRAPH
+## HISTORICAL LEGACY REFERENCE GRAPH
 
 `docs/operations/AI_SYSTEM_PROMPT.md` ->
 - `docs/database/SCHEMA.md`
@@ -76,7 +72,7 @@ These large files are not all loaded directly by the entry prompt, but the gover
 `docs/system/SYSTEM_INTELLIGENCE_REPORT.md` ->
 - `docs/system/PROJECT_STATE.md`
 
-## DEEP CHAINS
+## HISTORICAL DEEP CHAINS
 
 Observed high-cost chains:
 
@@ -85,11 +81,11 @@ Observed high-cost chains:
 3. `AGENTS.md` -> `docs/operations/AI_SYSTEM_PROMPT.md` -> `docs/ai-governance/AI_BUILD_RULES.md` -> `docs/architecture/ARCHITECTURE.md`
 4. `AGENTS.md` -> `docs/operations/AI_SYSTEM_PROMPT.md` -> `docs/ai-governance/AGENT_CREATION_WORKFLOW.md` -> `docs/ai-governance/DEVELOPMENT_AUTOMATION_WORKFLOW.md` -> `docs/ai-governance/SUPABASE_WORKFLOWS.md`
 
-Result:
-- default execution can expand from one prompt file into multiple governance files plus several large system references
-- the load path is not flat and invites over-reading
+Result before cutover:
+- default execution could expand from one prompt file into multiple governance files plus several large system references
+- the load path was not flat and invited over-reading
 
-## CIRCULAR REFERENCES
+## LEGACY CIRCULAR REFERENCES
 
 Confirmed cycles:
 
@@ -113,7 +109,7 @@ Repeated across multiple docs:
 
 The same behavioural guidance is currently repeated in the entry prompt, build rules, agent workflow, Supabase workflow, development automation workflow, and agent template.
 
-## REFACTOR DECISIONS
+## ACTIVE DEFAULT-LOAD DECISION
 
 - Flatten default loading to two docs: `CORE_SYSTEM_PROMPT.md` and `SYSTEM_RUNTIME.md`
 - Move detailed API, schema, workflow, and architecture content into `docs_v2/ON_DEMAND/`

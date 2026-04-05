@@ -6,10 +6,8 @@ IMPORTANT
 
 Any AI system assisting development in this repository must read:
 
-docs/operations/AI_SYSTEM_PROMPT.md  
-docs/architecture/ARCHITECTURE.md  
-docs/system/AGENTS.md  
-docs/system/API.md  
+docs_v2/CORE_SYSTEM_PROMPT.md  
+docs_v2/SYSTEM_RUNTIME.md  
 
 before generating or modifying code.
 
