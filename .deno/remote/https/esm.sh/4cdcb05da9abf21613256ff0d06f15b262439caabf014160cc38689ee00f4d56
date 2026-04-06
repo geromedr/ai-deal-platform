@@ -1,0 +1,4 @@
+/* esm.sh - @supabase/phoenix@0.4.0 */
+export * from "/@supabase/phoenix@0.4.0/denonext/phoenix.mjs";
+
+// denoCacheMetadata={"headers":{"content-type":"application/javascript; charset=utf-8","cf-ray":"9e8050c0899d57d5-SYD","age":"1206474","access-control-expose-headers":"X-ESM-Path, X-TypeScript-Types","server":"cloudflare","last-modified":"Mon, 23 Mar 2026 11:57:10 GMT","x-esm-path":"/@supabase/phoenix@0.4.0/denonext/phoenix.mjs","cf-cache-status":"HIT","date":"Mon, 06 Apr 2026 11:05:05 GMT","cache-control":"public, max-age=31536000, immutable","access-control-allow-origin":"*","x-typescript-types":"https://esm.sh/@supabase/phoenix@0.4.0/priv/static/types/index.d.ts"},"url":"https://esm.sh/@supabase/phoenix@0.4.0?target=denonext","time":1775473505}

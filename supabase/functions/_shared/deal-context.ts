@@ -28,6 +28,14 @@ function asArray<T>(value: T[] | null | undefined) {
   return Array.isArray(value) ? value : [];
 }
 
+function firstOrNull<T>(value: T | T[] | null | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
 function mapWithInvestors(
   rows: Row[] | null,
   investorsById: Map<string, Row>,
@@ -140,7 +148,7 @@ export async function loadDealContext(
       .from("deals")
       .select("*")
       .eq("id", dealId)
-      .single() as Promise<QueryResult<Row>>,
+      .maybeSingle() as Promise<QueryResult<Row>>,
 
     supabase
       .from("tasks")
@@ -312,13 +320,13 @@ export async function loadDealContext(
   }
 
   return {
-    deal: dealResult.data,
+    deal: firstOrNull(dealResult.data),
     tasks: asArray(tasksResult.data),
     communications: asArray(communicationsResult.data),
     financials: asArray(financialsResult.data),
     risks: asArray(risksResult.data),
     investors: mapWithInvestors(dealInvestorsResult.data, investorsById),
-    deal_terms: dealTermsResult.data ?? null,
+    deal_terms: firstOrNull(dealTermsResult.data),
     investor_pipeline: mapWithInvestors(
       investorPipelineResult.data,
       investorsById,
@@ -331,7 +339,7 @@ export async function loadDealContext(
       capitalAllocationsResult.data,
       investorsById,
     ),
-    capital_summary: capitalSummaryResult.data ?? null,
+    capital_summary: firstOrNull(capitalSummaryResult.data),
     investor_matches: mapWithInvestors(
       investorMatchesResult.data,
       investorsById,

@@ -16,9 +16,6 @@ export async function getDealFeed(
   const url = new URL(
     process.env.NEXT_PUBLIC_SUPABASE_URL + "/functions/v1/get-deal-feed",
   );
-  if (stageFilter !== null && stageFilter.trim().length > 0) {
-    url.searchParams.set("stageFilter", stageFilter);
-  }
 
   const res = await fetch(url.toString(), {
     method: "POST",
@@ -27,7 +24,7 @@ export async function getDealFeed(
       apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       Authorization: "Bearer " + process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     },
-    body: JSON.stringify({ limit: 20 }),
+    body: JSON.stringify({ limit: 20, stageFilter }),
   });
 
   const json = (await res.json()) as { items?: DealFeedItem[] };

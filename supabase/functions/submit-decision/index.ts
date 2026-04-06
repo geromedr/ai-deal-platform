@@ -60,6 +60,7 @@ serve(async (req) => {
     console.log("BODY", body);
     const dealId = normalizeString(body.deal_id);
     const decision = normalizeString(body.decision) as RequestPayload["decision"];
+    console.log("submit-decision incoming id", { deal_id: dealId });
 
     if (!dealId) {
       const error = new Error("deal_id is required");
@@ -91,15 +92,41 @@ serve(async (req) => {
       throw new Error(dealError.message);
     }
 
-    if (!dealRow) {
+    let resolvedDealId = dealRow?.id ?? "";
+    let dealFeedRow: Record<string, unknown> | null = null;
+
+    if (!resolvedDealId) {
+      const { data, error: dealFeedError } = await supabase
+        .from("deal_feed")
+        .select("*")
+        .eq("id", dealId)
+        .single();
+      dealFeedRow = data as Record<string, unknown> | null;
+
+      if (dealFeedError) {
+        throw new Error(dealFeedError.message);
+      }
+
+      console.log("submit-decision feed lookup result", dealFeedRow);
+
+      resolvedDealId = (dealFeedRow?.deal_id || dealFeedRow?.deals_id || dealFeedRow?.id) as string;
+
+      if (resolvedDealId === dealId) {
+        throw new Error("FK not resolved");
+      }
+    }
+
+    console.log("submit-decision resolved deals.id", { deal_id: resolvedDealId });
+
+    if (!resolvedDealId) {
       const error = new Error("Deal not found");
-      return jsonResponse({ error: error.message }, 400);
+      return jsonResponse({ error: error.message, deal_feed_row: dealFeedRow }, 400);
     }
 
     const { data, error } = await supabase
       .from("ai_actions")
       .insert({
-        deal_id: body.deal_id,
+        deal_id: resolvedDealId,
         agent: "decision-engine",
         action: "deal_decision",
         payload: {
@@ -114,42 +141,26 @@ serve(async (req) => {
     }
 
     if (body.decision === 'BUY') {
-      await supabase.from('deals').update({ stage: 'active' }).eq('id', body.deal_id);
+      await supabase.from('deals').update({ stage: 'active' }).eq('id', resolvedDealId);
     }
 
     if (decision === "PASS") {
       const { error: archiveError } = await supabase
         .from("deals")
         .update({ stage: "archived" })
-        .eq("id", dealId);
+        .eq("id", resolvedDealId);
 
       if (archiveError) {
         throw new Error(archiveError.message);
       }
     }
 
-    const taskTitle = decision === "REVIEW"
-      ? "Review deal details"
-      : "Review and progress deal";
-
-    const { data: existingPendingTasks, error: existingTaskError } = await supabase
-      .from("tasks")
-      .select("id")
-      .eq("deal_id", body.deal_id)
-      .eq("title", taskTitle)
-      .eq("status", "pending")
-      .limit(1);
-
-    if (existingTaskError) {
-      throw new Error(existingTaskError.message);
-    }
-
-    if (!existingPendingTasks || existingPendingTasks.length === 0) {
+    if (decision === "REVIEW") {
       const { error: taskError } = await supabase
         .from("tasks")
         .insert({
-          deal_id: body.deal_id,
-          title: taskTitle,
+          deal_id: resolvedDealId,
+          title: "Review Deal",
           status: "pending",
         });
 
@@ -162,7 +173,7 @@ serve(async (req) => {
 
     return jsonResponse({
       success: true,
-      deal_id: dealId,
+      deal_id: resolvedDealId,
       decision,
       action_id: data.id,
       timestamp: data.created_at ?? new Date().toISOString(),

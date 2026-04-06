@@ -19,27 +19,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import DecisionHeader from "@/components/deal/decision-header";
+import { getDealContext } from "@/lib/api/getDealContext";
 import { supabase } from "@/lib/supabase";
 
 type RecordLike = Record<string, unknown>;
 type CurrentDecision = "BUY" | "REVIEW" | "PASS" | null;
-
-type DealContext = {
-  deal?: RecordLike | null;
-  tasks?: RecordLike[] | null;
-  communications?: RecordLike[] | null;
-  financials?: RecordLike[] | null;
-  risks?: RecordLike[] | null;
-  investors?: RecordLike[] | null;
-  deal_terms?: RecordLike | null;
-  investor_pipeline?: RecordLike[] | null;
-  investor_communications?: RecordLike[] | null;
-  capital_allocations?: RecordLike[] | null;
-  capital_summary?: RecordLike | null;
-  investor_matches?: RecordLike[] | null;
-  suggested_investor_actions?: string[] | null;
-  error?: string | null;
-};
 
 function asRecord(value: unknown): RecordLike | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -126,6 +110,18 @@ function sentenceCase(value: string | null) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatDateTime(value: unknown) {
+  if (typeof value !== "string" || value.trim().length === 0) return "Not available";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en-AU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(parsed);
+}
+
 function getHighestRiskSeverity(risks: RecordLike[]) {
   const severityRank: Record<string, number> = {
     critical: 4,
@@ -184,74 +180,6 @@ function buildSummary(
   }
 
   return "Deal workspace with current diligence, financial, risk, and action context loaded from Supabase.";
-}
-
-function getErrorMessage(payload: unknown) {
-  return (
-    firstString(payload, ["error"]) ??
-    firstString(payload, ["message"]) ??
-    firstString(payload, ["details.reason"])
-  );
-}
-
-async function getDealContext(dealId: string): Promise<DealContext> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !anonKey) {
-    return { error: "Supabase environment variables are not configured." };
-  }
-
-  try {
-    const res = await fetch(`${supabaseUrl}/functions/v1/get-deal-context`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${anonKey}`,
-        apikey: anonKey,
-      },
-      body: JSON.stringify({ deal_id: dealId }),
-      cache: "no-store",
-    });
-
-    let payload: unknown = null;
-
-    try {
-      payload = await res.json();
-    } catch {
-      payload = null;
-    }
-
-    const data = asRecord(payload);
-
-    if (!res.ok) {
-      return {
-        error: getErrorMessage(payload) ?? "Failed to load deal",
-      };
-    }
-
-    if (!data) {
-      return { error: "Failed to load deal" };
-    }
-
-    return data as DealContext;
-  } catch {
-    return { error: "Failed to load deal" };
-  }
-}
-
-async function getDealTasks(dealId: string): Promise<RecordLike[]> {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("*")
-    .eq("deal_id", dealId)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    return [];
-  }
-
-  return asRecordArray(data);
 }
 
 async function getLatestDecision(dealId: string): Promise<CurrentDecision> {
@@ -330,33 +258,19 @@ function DealWorkspaceState({
 }
 
 async function DealWorkspaceContent({ dealId }: { dealId: string }) {
+  console.log("FETCHING DEAL ID", dealId);
   const data = await getDealContext(dealId);
-
-  if (data.error) {
-    return (
-      <DealWorkspaceState
-        title="Unable to load deal workspace"
-        description="The deal context request to `get-deal-context` did not succeed."
-        message={data.error}
-      />
-    );
-  }
-
-  const dealTasks = await getDealTasks(dealId);
+  console.log("CONTEXT RESPONSE", data);
   const currentDecision = await getLatestDecision(dealId);
 
   const deal = asRecord(data.deal);
   const tasks = asRecordArray(data.tasks);
-  const communications = asRecordArray(data.communications);
-  const financials = asRecordArray(data.financials);
-  const risks = asRecordArray(data.risks);
-  const capitalSummary = asRecord(data.capital_summary);
-  const investorMatches = asRecordArray(data.investor_matches);
-  const suggestedInvestorActions = Array.isArray(data.suggested_investor_actions)
-    ? data.suggested_investor_actions.filter(
-        (action): action is string => typeof action === "string" && action.trim().length > 0,
-      )
-    : [];
+  const communications: RecordLike[] = [];
+  const financials: RecordLike[] = [];
+  const risks: RecordLike[] = [];
+  const capitalSummary: RecordLike | null = null;
+  const investorMatches: RecordLike[] = [];
+  const suggestedInvestorActions: string[] = [];
   const latestFinancial = asRecord(financials[0]);
 
   if (!deal && tasks.length === 0 && communications.length === 0 && financials.length === 0 && risks.length === 0) {
@@ -517,18 +431,47 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
           currentDecision={currentDecision}
         />
 
-        <section className="space-y-2 text-sm">
-          <h2 className="font-semibold text-foreground">Tasks</h2>
-          {dealTasks.length > 0 ? (
-            dealTasks.map((task, index) => (
-              <div key={String(task.id ?? index)} className="text-muted-foreground">
-                <span className="text-foreground">{asString(task.title) ?? `Task ${index + 1}`}</span>
-                {" - "}
-                <span>{sentenceCase(asString(task.status) ?? "open")}</span>
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Tasks</h2>
+              <p className="text-sm text-muted-foreground">
+                Current tasks linked to this deal.
+              </p>
+            </div>
+            <Badge variant="outline">{tasks.length} total</Badge>
+          </div>
+
+          {tasks.length > 0 ? (
+            <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/95">
+              <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.9fr)_minmax(0,1fr)] gap-4 border-b border-border/70 bg-background/60 px-4 py-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                <span>Title</span>
+                <span>Status</span>
+                <span>Created At</span>
               </div>
-            ))
+              <div className="divide-y divide-border/70">
+                {tasks.map((task, index) => (
+                  <div
+                    key={String(task.id ?? index)}
+                    className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.9fr)_minmax(0,1fr)] gap-4 px-4 py-4 text-sm"
+                  >
+                    <span className="font-medium text-foreground">
+                      {asString(task.title) ?? `Task ${index + 1}`}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {sentenceCase(asString(task.status) ?? "open")}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {formatDateTime(task.created_at)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
-            <p className="text-muted-foreground">No tasks found.</p>
+            <div className="rounded-2xl border border-dashed border-border/70 bg-background/50 p-4 text-sm text-muted-foreground">
+              No tasks found.
+            </div>
           )}
         </section>
 

@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
-import {
-  getErrorMessage,
-  loadDealContext,
-} from "../_shared/deal-context.ts";
+import { getErrorMessage } from "../_shared/deal-context.ts";
 
 serve(
   createAgentHandler({
@@ -26,7 +23,17 @@ serve(
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
 
-      const context = await loadDealContext(supabase, deal_id);
+      const { data } = await supabase
+        .from("deal_feed")
+        .select("*")
+        .eq("id", deal_id)
+        .maybeSingle();
+
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("deal_id", deal_id)
+        .order("created_at", { ascending: false });
 
       await supabase.from("ai_actions").insert({
         deal_id,
@@ -36,7 +43,7 @@ serve(
       });
 
       return new Response(
-        JSON.stringify(context),
+        JSON.stringify({ deal: data, tasks }),
         { headers: { "Content-Type": "application/json" } },
       );
     } catch (err) {

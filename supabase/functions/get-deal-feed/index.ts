@@ -152,7 +152,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
 
   let query = supabase
     .from("deal_feed")
-    .select("*")
+    .select("*, deals(stage)")
     .limit(sortBy === "priority_score" ? MAX_LIMIT : limit);
 
   if (effectiveMinScore !== null) {
@@ -163,10 +163,6 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
     query = query.eq("status", status);
   }
 
-  if (stageFilter) {
-    query = query.eq("stage", stageFilter);
-  }
-
   query = query.order("created_at", { ascending: false });
 
   const { data, error } = await query;
@@ -174,6 +170,8 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
   if (error) {
     throw new Error(error.message);
   }
+
+  console.log('FEED SAMPLE', data?.[0]);
 
   const dealIds = Array.from(
     new Set(
@@ -305,7 +303,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
     }
   }
 
-  const items = (data ?? []).map((row) => {
+  let items = (data ?? []).map((row) => {
     const dealId = typeof row.id === "string" ? row.id : null;
     const deal = dealId !== null ? dealsById.get(dealId) ?? null : null;
     const feedMargin = getMarginFromFeedMetadata(row.metadata);
@@ -328,6 +326,8 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
       computedPriorityScore;
     const strategy = getStrategyFromDeal(deal);
 
+    console.log('STAGE VALUE', deal?.stage);
+
     return {
       deal_id: row.id,
       score: row.score,
@@ -339,7 +339,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
       address: typeof deal?.address === "string" ? deal.address : null,
       suburb: typeof deal?.suburb === "string" ? deal.suburb : null,
       strategy,
-      stage: typeof deal?.stage === "string" ? deal.stage : null,
+      stage: typeof row.deals?.stage === "string" ? row.deals.stage : null,
     };
   }).filter((item) =>
     matchesUserPreferences({
@@ -360,7 +360,13 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
     });
   }
 
-  const visibleItems = items.slice(0, limit);
+  let visibleItems = items.slice(0, limit);
+
+  if (stageFilter) {
+    visibleItems = visibleItems.filter(i =>
+      (i.stage || '').toLowerCase().trim() === stageFilter.toLowerCase().trim()
+    );
+  }
 
   for (const item of visibleItems) {
     if (typeof item.deal_id !== "string") continue;
