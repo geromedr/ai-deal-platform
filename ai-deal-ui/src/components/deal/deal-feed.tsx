@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, RefreshCcw, Signal } from "lucide-react";
 
 import { DealCard } from "@/components/deal/deal-card";
@@ -9,18 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDealFeed, type DealFeedItem } from "@/lib/api/getDealFeed";
 
+type FeedFilter = "all" | "active" | "archived";
+
 export default function DealFeed() {
   const [deals, setDeals] = useState<DealFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<FeedFilter>("all");
 
-  async function loadDeals() {
+  const loadDeals = useCallback(async (nextFilter: FeedFilter) => {
     setLoading(true);
     setError(null);
 
     try {
-      const data = await getDealFeed();
-      console.log("DEALS:", data);
+      const stageFilter =
+        nextFilter === "all" ? null : nextFilter === "active" ? "active" : "archived";
+      const data = await getDealFeed(stageFilter);
       setDeals(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load deals.";
@@ -28,11 +32,11 @@ export default function DealFeed() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    void loadDeals();
-  }, []);
+    void loadDeals(selectedFilter);
+  }, [loadDeals, selectedFilter]);
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,_#f6f4eb_0%,_#f2efe6_32%,_#ece8de_100%)]">
@@ -74,11 +78,34 @@ export default function DealFeed() {
                   <span className="text-muted-foreground">Visible deals</span>
                   <span className="font-medium">{deals.length}</span>
                 </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant={selectedFilter === "all" ? "default" : "outline"}
+                    onClick={() => setSelectedFilter("all")}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={selectedFilter === "active" ? "default" : "outline"}
+                    onClick={() => setSelectedFilter("active")}
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={selectedFilter === "archived" ? "default" : "outline"}
+                    onClick={() => setSelectedFilter("archived")}
+                  >
+                    Archived
+                  </Button>
+                </div>
                 <Button
                   size="sm"
                   variant="outline"
                   className="w-full"
-                  onClick={() => void loadDeals()}
+                  onClick={() => void loadDeals(selectedFilter)}
                 >
                   <RefreshCcw className="size-3.5" />
                   Refresh feed
@@ -112,7 +139,7 @@ export default function DealFeed() {
                   <p className="text-sm text-muted-foreground">{error}</p>
                 </div>
               </div>
-              <Button onClick={() => void loadDeals()}>Retry</Button>
+              <Button onClick={() => void loadDeals(selectedFilter)}>Retry</Button>
             </CardContent>
           </Card>
         ) : null}

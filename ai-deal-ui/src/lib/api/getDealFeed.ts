@@ -10,19 +10,25 @@ export type DealFeedItem = {
   source_name?: string | null;
 };
 
-export async function getDealFeed(): Promise<DealFeedItem[]> {
-  const res = await fetch(
+export async function getDealFeed(
+  stageFilter: string | null = null,
+): Promise<DealFeedItem[]> {
+  const url = new URL(
     process.env.NEXT_PUBLIC_SUPABASE_URL + "/functions/v1/get-deal-feed",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        Authorization: "Bearer " + process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ limit: 20 }),
-    },
   );
+  if (stageFilter !== null && stageFilter.trim().length > 0) {
+    url.searchParams.set("stageFilter", stageFilter);
+  }
+
+  const res = await fetch(url.toString(), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      Authorization: "Bearer " + process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ limit: 20 }),
+  });
 
   const json = (await res.json()) as { items?: DealFeedItem[] };
   return json.items || [];

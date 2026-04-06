@@ -18,6 +18,7 @@ type GetDealFeedRequest = {
   status?: string;
   sort_by?: "created_at" | "priority_score";
   user_id?: string;
+  stageFilter?: string | null;
 };
 
 const DEFAULT_LIMIT = 20;
@@ -89,6 +90,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
     ? "created_at"
     : "priority_score";
   const userId = parseString(payload.user_id);
+  const stageFilter = parseString(payload.stageFilter);
 
   if (userId && !isUuid(userId)) {
     throw new Error("user_id must be a valid UUID");
@@ -150,9 +152,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
 
   let query = supabase
     .from("deal_feed")
-    .select(
-      "deal_id, score, priority_score, trigger_event, summary, created_at, status, metadata, deals!inner(stage)",
-    )
+    .select("*")
     .limit(sortBy === "priority_score" ? MAX_LIMIT : limit);
 
   if (effectiveMinScore !== null) {
@@ -161,11 +161,11 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
 
   if (status) {
     query = query.eq("status", status);
-  } else {
-    query = query.neq("status", "archived");
   }
 
-  query = query.neq("deals.stage", "archived");
+  if (stageFilter) {
+    query = query.eq("stage", stageFilter);
+  }
 
   query = query.order("created_at", { ascending: false });
 
@@ -178,7 +178,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
   const dealIds = Array.from(
     new Set(
       (data ?? [])
-        .map((row) => (typeof row.deal_id === "string" ? row.deal_id : null))
+        .map((row) => (typeof row.id === "string" ? row.id : null))
         .filter((value): value is string => value !== null),
     ),
   );
@@ -306,7 +306,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
   }
 
   const items = (data ?? []).map((row) => {
-    const dealId = typeof row.deal_id === "string" ? row.deal_id : null;
+    const dealId = typeof row.id === "string" ? row.id : null;
     const deal = dealId !== null ? dealsById.get(dealId) ?? null : null;
     const feedMargin = getMarginFromFeedMetadata(row.metadata);
     const margin = dealId !== null
@@ -329,7 +329,7 @@ async function handleRequest(payload: GetDealFeedRequest = {}) {
     const strategy = getStrategyFromDeal(deal);
 
     return {
-      deal_id: row.deal_id,
+      deal_id: row.id,
       score: row.score,
       priority_score: priorityScore,
       trigger_event: row.trigger_event,
@@ -415,7 +415,6 @@ serve(async (req) => {
     } catch {
       body = {};
     }
-
     const result = await handleRequest(body);
 
     return new Response(JSON.stringify(result), {
