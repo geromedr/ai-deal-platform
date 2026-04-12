@@ -8,7 +8,7 @@ import { submitDecision, type DealDecision } from "@/lib/api/submitDecision";
 import { cn } from "@/lib/utils";
 
 type DecisionHeaderProps = {
-  dealId: string;
+  feedId: string;
   score: number;
   confidence: number | null;
   currentDecision?: DealDecision | null;
@@ -56,7 +56,7 @@ function formatConfidence(confidence: number | null) {
 }
 
 export default function DecisionHeader({
-  dealId,
+  feedId,
   score,
   confidence,
   currentDecision,
@@ -74,7 +74,7 @@ export default function DecisionHeader({
 
     try {
       const result = await submitDecision({
-        deal_id: dealId,
+        deal_id: feedId,
         decision,
       });
 
@@ -82,7 +82,7 @@ export default function DecisionHeader({
       router.refresh();
     } catch (error) {
       console.error("Failed to submit decision", {
-        dealId,
+        feedId,
         decision,
         error,
       });

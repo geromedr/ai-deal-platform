@@ -2,6 +2,7 @@ type RecordLike = Record<string, unknown>;
 
 type DealContextResponse = {
   deal: RecordLike | null;
+  feed: RecordLike | null;
   tasks: RecordLike[];
 };
 
@@ -35,7 +36,7 @@ export async function getDealContext(dealId: string): Promise<DealContextRespons
 
   if (!supabaseUrl || !anonKey) {
     console.log("getDealContext tasks", []);
-    return { deal: null, tasks: [] };
+    return { deal: null, feed: null, tasks: [] };
   }
 
   try {
@@ -55,22 +56,23 @@ export async function getDealContext(dealId: string): Promise<DealContextRespons
     if (!res.ok) {
       console.error("get-deal-context failed:", getErrorMessage(payload) ?? "Failed to load deal");
       console.log("getDealContext tasks", []);
-      return { deal: null, tasks: [] };
+      return { deal: null, feed: null, tasks: [] };
     }
 
     const record = asRecord(payload);
     const deal = record ? asRecord(record.deal) : null;
+    const feed = record ? asRecord(record.feed) : null;
     const tasks = record ? asRecordArray(record.tasks) : [];
 
     console.log("getDealContext tasks", tasks);
 
-    return { deal, tasks };
+    return { deal, feed, tasks };
   } catch (error) {
     console.error(
       "get-deal-context request failed:",
       error instanceof Error ? error.message : "Failed to load deal",
     );
     console.log("getDealContext tasks", []);
-    return { deal: null, tasks: [] };
+    return { deal: null, feed: null, tasks: [] };
   }
 }

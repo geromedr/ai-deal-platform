@@ -35,6 +35,7 @@ Rules and actions:
 - `agent-orchestrator`
 - `notification-agent`
 - `create-task`
+- `test-insert-task`
 - `update-deal-stage`
 - `submit-decision`
 

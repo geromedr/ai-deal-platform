@@ -63,10 +63,10 @@ transition audit logging in `ai_actions`.
 ### submit-decision
 
 Accepts a client-submitted `BUY`, `REVIEW`, or `PASS` decision for a single
-deal, validates the request, writes a pending decision audit row into
-`ai_actions`, archives the deal by setting `deals.stage` to `archived` when the
-decision is `PASS`, and returns a structured success payload for the deal
-workspace UI.
+deal, validates the request, resolves the canonical `deals.id` through
+`deal_feed`, writes a decision audit row into `ai_actions`, creates a pending
+task when the decision is `REVIEW`, and returns a structured success payload
+for the deal workspace UI.
 
 ## Communication
 

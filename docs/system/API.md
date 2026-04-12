@@ -1646,9 +1646,9 @@ Validation notes:
 
 - `deal_id` must be a non-empty UUID for an existing deal
 - `decision` must be one of `BUY`, `REVIEW`, or `PASS`
-- the function writes a pending decision audit row into `ai_actions`
-- when `decision` is `PASS`, the function also updates `deals.stage` to
-  `archived`
+- the function resolves the canonical `deals.id` through `deal_feed`
+- the function writes a decision audit row into `ai_actions`
+- when `decision` is `REVIEW`, the function also creates a pending task
 
 Request:
 
@@ -1675,9 +1675,9 @@ Response:
 Notes:
 
 - CORS preflight allows `POST, OPTIONS`
-- the implementation inserts directly into `ai_actions` using the documented
+- the implementation inserts directly into `ai_actions` using the resolved
   `deal_id`, `agent`, `action`, and `payload` columns
-- `PASS` decisions also archive the deal by updating `deals.stage`
+- `REVIEW` decisions also create a task for the same resolved deal
 
 ## Example: subscribe-deal-feed
 

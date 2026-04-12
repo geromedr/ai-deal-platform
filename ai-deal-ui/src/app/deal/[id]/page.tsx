@@ -264,6 +264,8 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
   const currentDecision = await getLatestDecision(dealId);
 
   const deal = asRecord(data.deal);
+  const feed = asRecord(data.feed);
+  const feedId = asString(feed?.id) ?? "";
   const tasks = asRecordArray(data.tasks);
   const communications: RecordLike[] = [];
   const financials: RecordLike[] = [];
@@ -293,20 +295,7 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
   const dealStage = firstString(deal, ["stage"]);
 
   const summary = buildSummary(deal, latestFinancial, risks.length);
-  const score =
-    firstNumber(deal, [
-      "score",
-      "priority_score",
-      "metadata.score",
-      "metadata.priority_score",
-      "metadata.ranking_score",
-    ]) ??
-    firstNumber(latestFinancial, [
-      "metadata.score",
-      "metadata.priority_score",
-      "metadata.ranking_score",
-    ]) ??
-    0;
+  const score = feed?.priority_score ?? feed?.score ?? 0;
   const confidence = firstNumber(deal, [
     "confidence",
     "metadata.confidence",
@@ -425,7 +414,7 @@ async function DealWorkspaceContent({ dealId }: { dealId: string }) {
         </div>
 
         <DecisionHeader
-          dealId={dealId}
+          feedId={feedId}
           score={score}
           confidence={confidence}
           currentDecision={currentDecision}

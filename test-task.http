@@ -1,0 +1,8 @@
+POST https://fefbzgmvlcxkaarxttlu.supabase.co/functions/v1/test-insert-task
+Content-Type: application/json
+apikey: {{SUPABASE_ANON_KEY}}
+Authorization: Bearer {{SUPABASE_ANON_KEY}}
+
+{
+  deal_id: 26032600-0000-4000-8000-000000000001
+}
