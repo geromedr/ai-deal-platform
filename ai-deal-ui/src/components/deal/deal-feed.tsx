@@ -16,6 +16,7 @@ export default function DealFeed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<FeedFilter>("all");
+  const dedupedDeals = Array.from(new Map(deals.map((deal) => [deal.deal_id, deal])).values());
 
   const loadDeals = useCallback(async (nextFilter: FeedFilter) => {
     setLoading(true);
@@ -76,7 +77,7 @@ export default function DealFeed() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Visible deals</span>
-                  <span className="font-medium">{deals.length}</span>
+                  <span className="font-medium">{dedupedDeals.length}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -144,7 +145,7 @@ export default function DealFeed() {
           </Card>
         ) : null}
 
-        {!loading && !error && deals.length === 0 ? (
+        {!loading && !error && dedupedDeals.length === 0 ? (
           <Card className="border-border/70 bg-card/90">
             <CardContent className="py-8 text-center">
               <p className="text-lg font-medium">No deals returned.</p>
@@ -156,9 +157,9 @@ export default function DealFeed() {
           </Card>
         ) : null}
 
-        {!loading && !error && deals.length > 0 ? (
+        {!loading && !error && dedupedDeals.length > 0 ? (
           <section className="grid gap-4">
-            {deals.map((deal) => (
+            {dedupedDeals.map((deal) => (
               <DealCard key={deal.deal_id} deal={deal} />
             ))}
           </section>
