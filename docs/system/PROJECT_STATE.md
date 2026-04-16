@@ -255,6 +255,31 @@ Testing
   high-priority deals to `reviewing`, auto-moves deals with fully completed task
   sets to `approved`, and deduplicates transition logs in `ai_actions`
 
+## UI Layer (ai-deal-ui/)
+
+The Next.js 14 App Router front-end is now live and covers the full operator workflow:
+
+- **Deal Feed** (`/`) — ranked list with filter (All / Active / Archived), text search (address, suburb, state, deal name), and sort (Score / Priority / Date). Feed cards link to the deal workspace with correct navigation IDs.
+- **Deal Workspace** (`/deal/[id]`) — 7-tab layout:
+  - Brief: 4-paragraph Deal Brief (Opportunity, Financials, Risks & Hurdles, Area & Exit)
+  - Financials: GDV / TDC / profit / margin + snapshot table
+  - Risks & Tasks: risk cards + tasks table
+  - Investors: investor matches (via `investor-actions`) + pipeline summary
+  - Timeline: activity feed from `deal_activity_feed`
+  - Reports: report list (via `get-deal-reports`) + "Generate report" button (via `deal-report-agent`)
+  - Chat: deal-level chat with stub reply (swap for LLM with `AI_ENABLED=true`)
+- **Operator Dashboard** (`/ops`) — agent health, usage metrics, approval queue
+- **Deal Intake** (`/deals/new`) — manual intake form triggering `site-discovery-agent`
+- **Global Nav** — persistent sticky header linking Feed / Ops / New Deal on all pages
+
+All edge function calls are proxied through Next.js API routes (`/api/...`) to avoid CORS errors. The shared helper is `src/lib/api/callEdgeFunction.ts`.
+
+The Deal Brief replaces the previous 3-bullet TLDR. Margin bands (Thin / Marginal / Solid / Excellent) and score bands (low-confidence / early-stage / moderate conviction / high conviction) are computed server-side from deal financial and scoring data.
+
+Remaining UI work:
+- Wire chat to real LLM (`AI_ENABLED=true` + `ANTHROPIC_API_KEY` in `.env.local`)
+- Real planning data in `site-intelligence-agent` (requires DA API decisions)
+
 ## Planned
 
 Parcel Scanner\
@@ -262,5 +287,5 @@ Deal Ranking AI\
 Automated Feasibility Reports\
 Investor Deal Feed Workflow
 
-Estimated completion: **65–70%**
+Estimated completion: **75–80%**
 

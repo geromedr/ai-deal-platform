@@ -6,8 +6,13 @@ export type DealFeedItem = {
   status?: string | null;
   suburb?: string | null;
   state?: string | null;
+  stage?: string | null;
+  strategy?: string | null;
+  address?: string | null;
+  deal_name?: string | null;
   asset_type?: string | null;
   source_name?: string | null;
+  created_at?: string | null;
 };
 
 export async function getDealFeed(

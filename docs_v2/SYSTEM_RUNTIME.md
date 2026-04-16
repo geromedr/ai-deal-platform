@@ -8,6 +8,7 @@ This document holds the active repository state needed for normal execution. It 
 - Orchestration pattern: event-driven stage completion with rule evaluation and triggered actions.
 - Persistence pattern: Supabase tables and views documented in detail on demand.
 - Compatibility pattern: hosted environments may contain legacy schema drift, so functions preserve warning-driven fallbacks where safe.
+- UI pattern: Next.js 14 App Router (`ai-deal-ui/`). All Supabase edge function calls must be proxied through Next.js API routes — direct browser fetch to Supabase is blocked by CORS. See **UI Layer** section below.
 
 ## KEY AGENT GROUPS
 
@@ -141,6 +142,69 @@ Knowledge and reports:
 - `report_index`
 - `comparable_sales_estimates`
 - `comparable_sales_evidence`
+
+## UI LAYER
+
+The front-end is a Next.js 14 App Router application located at `ai-deal-ui/`.
+
+### Key Pages
+
+| Route | Purpose |
+|---|---|
+| `/` | Deal feed — ranked list of all deals |
+| `/deal/[id]` | Deal workspace — full context, brief, financials, risks, investors, timeline, reports, chat |
+| `/ops` | Operator dashboard — agent health, usage metrics, approval queue |
+| `/deals/new` | Manual deal intake — triggers `site-discovery-agent` |
+
+### Deal Workspace Tabs
+
+The workspace is divided into 7 tabs (client-side, no page reload):
+
+1. **Brief** — 4-paragraph Deal Brief (Opportunity, Financials, Risks & Hurdles, Area & Exit) + Key Signals card
+2. **Financials** — Overview (status, strategy, address, site area, task count) + Financials (GDV, TDC, profit, margin, snapshot table)
+3. **Risks & Tasks** — Risk cards + Tasks table. Tab label shows a badge count.
+4. **Investors** — InvestorPanel (suggested actions, matched investor cards) + Pipeline Summary
+5. **Timeline** — Chronological activity feed from `deal_activity_feed`
+6. **Reports** — Report list from `report_index` + "Generate report" button wired to `deal-report-agent`
+7. **Chat** — Deal-level chat. Stub reply by default; wire to Anthropic API via `AI_ENABLED=true` in `.env.local`
+
+### Deal Brief (replaces TLDR)
+
+The workspace Brief tab shows a 4-paragraph narrative generated server-side on each page load. Paragraphs:
+- **Opportunity**: score-band label, strategy, location, yield, zoning, overall verdict
+- **Financials**: GDV, TDC, profit, margin with qualitative band (Thin / Marginal / Solid / Excellent)
+- **Risks & Hurdles**: highest-severity risk item, flood flag, rezoning signal, no-risk confirmation
+- **Area & Exit**: suburb/state context, comparable availability, buyer pool inference
+
+Margin bands: Thin (<14%), Marginal (14–20%), Solid (20–28%), Excellent (≥28%).
+Score bands: low-confidence (<40), early-stage (40–65), moderate conviction (65–85), high conviction (≥85).
+
+### CORS Proxy Pattern
+
+All edge function calls from the browser MUST go through a Next.js API route. Direct fetch to Supabase from the browser is blocked by missing CORS headers on the edge functions.
+
+Pattern: `Browser → /api/[route]/route.ts → callEdgeFunction() → Supabase`
+
+Current proxy routes and their targets:
+- `GET /api/deal-chat` → `(stub)` | `POST` → replies from local stub or LLM
+- `GET /api/investor-matches?deal_id=...` → `investor-actions`
+- `GET /api/deal-timeline?deal_id=...` → `get-deal-timeline`
+- `GET /api/deal-reports?deal_id=...` → `get-deal-reports`
+- `POST /api/deal-reports` → `deal-report-agent`
+- `GET /api/ops-summary` → `get-operator-summary` + `get-usage-summary`
+- `POST /api/approve-queue` → `approve-approval-queue`
+- `POST /api/submit-deal` → `site-discovery-agent`
+
+### Global Navigation
+
+`GlobalNav` component is rendered in the root layout (`app/layout.tsx`). It is a sticky header with links to Feed, Ops, and New Deal. Active state is determined by `usePathname`.
+
+### Feed Capabilities
+
+- Filter: All / Active / Archived (stage-based)
+- Search: client-side text filter on address, deal name, suburb, state
+- Sort: Score, Priority, or Date (ascending/descending toggle)
+- Navigation: deal cards pass the current visible + sorted ID list to the workspace via URL params (`?ids=...&i=...`) so prev/next navigation respects the active filter and sort order
 
 ## CURRENT WORKING FLOWS
 
