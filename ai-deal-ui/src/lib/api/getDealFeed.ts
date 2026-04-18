@@ -26,8 +26,8 @@ export async function getDealFeed(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      Authorization: "Bearer " + process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+      Authorization: "Bearer " + (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""),
     },
     body: JSON.stringify({ limit: 20, stageFilter }),
   });

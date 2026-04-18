@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { formatCurrencyShort, sentenceCase } from "@/lib/utils/format";
 import type { InvestorActionsResponse } from "@/lib/api/getInvestorMatches";
 
 type InvestorPanelProps = {
@@ -31,20 +32,6 @@ function pipelineVariant(status: string | null): "default" | "secondary" | "outl
   if (s === "interested" || s === "negotiating") return "default";
   if (s === "contacted") return "secondary";
   return "outline";
-}
-
-function sentenceCase(value: string | null | undefined) {
-  if (!value) return "—";
-  return value.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatCurrency(value: number | null | undefined) {
-  if (value == null) return "—";
-  return new Intl.NumberFormat("en-AU", {
-    style: "currency",
-    currency: "AUD",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export default function InvestorPanel({ dealId }: InvestorPanelProps) {
@@ -175,7 +162,7 @@ export default function InvestorPanel({ dealId }: InvestorPanelProps) {
                       ) : null}
                       {inv?.min_investment != null || inv?.max_investment != null ? (
                         <span>
-                          {formatCurrency(inv?.min_investment)} – {formatCurrency(inv?.max_investment)}
+                          {formatCurrencyShort(inv?.min_investment)} – {formatCurrencyShort(inv?.max_investment)}
                         </span>
                       ) : null}
                     </div>

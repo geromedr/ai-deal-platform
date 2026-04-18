@@ -21,6 +21,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import DecisionHeader from "@/components/deal/decision-header";
+import BriefExportButton from "@/components/deal/brief-export-button";
 import DealChat from "@/components/deal/deal-chat";
 import DealTimeline from "@/components/deal/deal-timeline";
 import DealReports from "@/components/deal/deal-reports";
@@ -706,13 +707,28 @@ async function DealWorkspaceContent({
             <section className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
               <Card className="border-border/70 bg-[radial-gradient(circle_at_top_left,_rgba(205,220,57,0.18),_transparent_34%),linear-gradient(135deg,_rgba(255,255,255,0.96),_rgba(244,241,233,0.92))] shadow-[0_24px_80px_-48px_rgba(48,57,36,0.55)]">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="size-4 text-primary" />
-                    Deal Brief
-                  </CardTitle>
-                  <CardDescription>
-                    Operator summary — opportunity, financials, risks, and area context.
-                  </CardDescription>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Building2 className="size-4 text-primary" />
+                        Deal Brief
+                      </CardTitle>
+                      <CardDescription>
+                        Operator summary — opportunity, financials, risks, and area context.
+                      </CardDescription>
+                    </div>
+                    <BriefExportButton
+                      dealName={dealName}
+                      narrative={dealNarrative}
+                      score={score}
+                      keySignals={[
+                        { label: "Zoning",           value: zoning },
+                        { label: "Height Limit",     value: heightLimit ?? "Not available" },
+                        { label: "Yield / Site Area", value: yieldText },
+                        { label: "Risk Flag",         value: riskFlag },
+                      ]}
+                    />
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {(

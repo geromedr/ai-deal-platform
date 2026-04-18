@@ -42,6 +42,23 @@ export default function DealFeed() {
 
   const dedupedDeals = Array.from(new Map(deals.map((deal) => [deal.deal_id, deal])).values());
 
+  const feedStats = useMemo(() => {
+    const deduped = Array.from(new Map(deals.map((d) => [d.deal_id, d])).values());
+    const total = deduped.length;
+    const highConviction = deduped.filter((d) => (d.score ?? 0) >= 85).length;
+    const scores = deduped.map((d) => d.score).filter((s): s is number => s !== null);
+    const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+    const strategyCounts: Record<string, number> = {};
+    deduped.forEach((d) => {
+      const s = (d.strategy ?? "unknown").toLowerCase().replace(/[_-]/g, " ");
+      strategyCounts[s] = (strategyCounts[s] ?? 0) + 1;
+    });
+    const topStrategies = Object.entries(strategyCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    return { total, highConviction, avgScore, topStrategies };
+  }, [deals]);
+
   const visibleDeals = useMemo(() => {
     let result = dedupedDeals;
     if (search.trim()) {
@@ -158,6 +175,44 @@ export default function DealFeed() {
             </Card>
           </div>
         </section>
+
+        {/* Stats bar */}
+        {!loading && !error && feedStats.total > 0 ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/70 bg-background/80 px-5 py-3 text-sm">
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">Total</span>
+              <span className="font-semibold text-foreground">{feedStats.total}</span>
+            </div>
+            <div className="h-3 w-px bg-border/70" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">High conviction</span>
+              <span className="font-semibold text-foreground">{feedStats.highConviction}</span>
+            </div>
+            <div className="h-3 w-px bg-border/70" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">Avg score</span>
+              <span className="font-semibold text-foreground">
+                {feedStats.avgScore !== null ? feedStats.avgScore : "—"}
+              </span>
+            </div>
+            {feedStats.topStrategies.length > 0 ? (
+              <>
+                <div className="h-3 w-px bg-border/70 hidden sm:block" />
+                <div className="hidden sm:flex items-center gap-2 flex-wrap">
+                  {feedStats.topStrategies.map(([strategy, count]) => (
+                    <span
+                      key={strategy}
+                      className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2.5 py-0.5 text-xs text-muted-foreground capitalize"
+                    >
+                      {strategy}
+                      <span className="font-medium text-foreground">{count}</span>
+                    </span>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Search + Sort toolbar */}
         <div className="flex flex-wrap items-center gap-2">

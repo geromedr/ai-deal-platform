@@ -6,23 +6,12 @@ import { AlertCircle, FileText, Loader2, RefreshCcw, Sparkles } from "lucide-rea
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateTimeShort, sentenceCase } from "@/lib/utils/format";
 import type { ReportsListResponse, ReportItem } from "@/app/api/deal-reports/route";
 
 type DealReportsProps = {
   dealId: string;
 };
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeStyle: "short" }).format(d);
-}
-
-function sentenceCase(value: string | null | undefined) {
-  if (!value) return "—";
-  return value.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function reportTypeBadge(reportType: string | null | undefined) {
   const t = (reportType ?? "").toLowerCase();
@@ -49,7 +38,7 @@ function ReportRow({ report }: { report: ReportItem }) {
           <Badge variant={reportTypeBadge(report.report_type)}>
             {sentenceCase(report.report_type)}
           </Badge>
-          <span className="text-xs text-muted-foreground">{formatDateTime(report.created_at)}</span>
+          <span className="text-xs text-muted-foreground">{formatDateTimeShort(report.created_at)}</span>
         </div>
       </div>
 

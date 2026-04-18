@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Building2, LayoutDashboard, PlusCircle, Settings } from "lucide-react";
+import NotificationsPanel from "@/components/layout/notifications-panel";
 
 type NavLink = {
   href: string;
@@ -41,7 +42,7 @@ export default function GlobalNav() {
         <div className="h-4 w-px bg-border/70 hidden sm:block" />
 
         {/* Nav links */}
-        <nav className="flex items-center gap-0.5">
+        <nav className="flex items-center gap-0.5 flex-1">
           {LINKS.map((link) => {
             const active = isActive(link);
             const Icon = link.icon;
@@ -61,6 +62,9 @@ export default function GlobalNav() {
             );
           })}
         </nav>
+
+        {/* Notifications */}
+        <NotificationsPanel />
       </div>
     </header>
   );

@@ -1,0 +1,258 @@
+"use client";
+
+import { Download } from "lucide-react";
+
+type DealNarrative = {
+  verdict: string;
+  financials: string;
+  risks: string;
+  area: string;
+};
+
+type KeySignal = {
+  label: string;
+  value: string;
+};
+
+type BriefExportButtonProps = {
+  dealName: string;
+  narrative: DealNarrative;
+  keySignals: KeySignal[];
+  score?: number | null;
+};
+
+function escapHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+function buildPrintHtml(
+  dealName: string,
+  narrative: DealNarrative,
+  keySignals: KeySignal[],
+  score: number | null | undefined,
+): string {
+  const now = new Date().toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const sections = [
+    { label: "Opportunity",    text: narrative.verdict },
+    { label: "Financials",     text: narrative.financials },
+    { label: "Risks & Hurdles", text: narrative.risks },
+    { label: "Area & Exit",    text: narrative.area },
+  ];
+
+  const signalsHtml = keySignals
+    .map(
+      (s) => `
+      <div class="signal">
+        <div class="signal-label">${escapHtml(s.label)}</div>
+        <div class="signal-value">${escapHtml(s.value)}</div>
+      </div>`,
+    )
+    .join("");
+
+  const sectionsHtml = sections
+    .map(
+      (s) => `
+      <div class="section">
+        <div class="section-label">${escapHtml(s.label)}</div>
+        <p class="section-body">${escapHtml(s.text)}</p>
+      </div>`,
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Deal Brief — ${escapHtml(dealName)}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background: #fff;
+      padding: 32px 40px;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 2px solid #b6cc1a;
+      padding-bottom: 14px;
+      margin-bottom: 22px;
+    }
+    .header-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .brand {
+      font-size: 8pt;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #888;
+    }
+    .date {
+      font-size: 8pt;
+      color: #888;
+    }
+    h1 {
+      font-size: 20pt;
+      font-weight: 700;
+      color: #111;
+      margin-top: 6px;
+      letter-spacing: -0.02em;
+    }
+    .score-pill {
+      display: inline-block;
+      margin-top: 6px;
+      background: #f0f4d0;
+      border: 1px solid #c8d86e;
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 8pt;
+      font-weight: 600;
+      color: #4a5c0a;
+    }
+
+    /* Key signals grid */
+    .signals-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .signal {
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 9px 12px;
+      background: #fafafa;
+    }
+    .signal-label {
+      font-size: 7.5pt;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 3px;
+    }
+    .signal-value {
+      font-size: 10pt;
+      font-weight: 600;
+      color: #111;
+    }
+
+    /* Narrative sections */
+    .sections-title {
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 12px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+    .section {
+      margin-bottom: 16px;
+    }
+    .section-label {
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #7a9a00;
+      margin-bottom: 4px;
+    }
+    .section-body {
+      font-size: 10pt;
+      line-height: 1.65;
+      color: #222;
+    }
+    .section-body strong { font-weight: 700; }
+
+    /* Footer */
+    .footer {
+      margin-top: 28px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e5e5;
+      font-size: 7.5pt;
+      color: #aaa;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    @media print {
+      body { padding: 0; }
+      @page { margin: 20mm 18mm; size: A4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-meta">
+      <div class="brand">AI Deal Platform · Deal Brief</div>
+      <div class="date">${now}</div>
+    </div>
+    <h1>${escapHtml(dealName)}</h1>
+    ${score != null ? `<div class="score-pill">Score: ${score}</div>` : ""}
+  </div>
+
+  ${keySignals.length > 0 ? `
+  <div class="signals-grid">${signalsHtml}</div>
+  ` : ""}
+
+  <div class="sections-title">Deal Brief</div>
+  ${sectionsHtml}
+
+  <div class="footer">
+    <span>Generated by AI Deal Platform</span>
+    <span>Confidential — for internal use only</span>
+  </div>
+
+  <script>
+    window.addEventListener("load", () => {
+      setTimeout(() => window.print(), 300);
+    });
+  </script>
+</body>
+</html>`;
+}
+
+export default function BriefExportButton({
+  dealName,
+  narrative,
+  keySignals,
+  score,
+}: BriefExportButtonProps) {
+  function handleExport() {
+    const html = buildPrintHtml(dealName, narrative, keySignals, score);
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+  }
+
+  return (
+    <button
+      onClick={handleExport}
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border/70 bg-background/80 px-3 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <Download className="size-3.5" />
+      Export PDF
+    </button>
+  );
+}

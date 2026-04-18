@@ -4,23 +4,12 @@ import { useEffect, useState } from "react";
 import { Activity, AlertCircle, Loader2 } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDateTimeShort, sentenceCase } from "@/lib/utils/format";
 import type { TimelineResponse, TimelineEvent } from "@/app/api/deal-timeline/route";
 
 type DealTimelineProps = {
   dealId: string;
 };
-
-function formatDateTime(value: string | null | undefined) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeStyle: "short" }).format(d);
-}
-
-function sentenceCase(value: string | null | undefined) {
-  if (!value) return "—";
-  return value.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function eventTypeColor(eventType: string | null | undefined): string {
   if (!eventType) return "bg-border/70";
@@ -57,7 +46,7 @@ function EventRow({ event, isLast }: { event: TimelineEvent; isLast: boolean }) 
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="font-medium text-foreground text-sm">{title}</p>
             <span className="text-xs text-muted-foreground shrink-0">
-              {formatDateTime(event.created_at)}
+              {formatDateTimeShort(event.created_at)}
             </span>
           </div>
           {subtitle && subtitle !== title ? (

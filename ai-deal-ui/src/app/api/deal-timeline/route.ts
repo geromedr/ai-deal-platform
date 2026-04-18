@@ -10,6 +10,7 @@ type TimelineEvent = {
   agent?: string | null;
   action?: string | null;
   metadata?: Record<string, unknown> | null;
+  content?: Record<string, unknown> | null;
   created_at?: string | null;
 };
 
