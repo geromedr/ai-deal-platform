@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/card";
 import type { OpsSummaryResponse } from "@/app/api/ops-summary/route";
 import type { RunPipelineResponse, PipelineStep } from "@/app/api/run-pipeline/route";
+import type { RunDiscoveryResponse, DiscoverySuburbResult } from "@/app/api/run-discovery/route";
 import { sentenceCase as sharedSentenceCase, formatDateTime as sharedFormatDateTime } from "@/lib/utils/format";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -143,6 +144,12 @@ export default function OpsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  // Discovery runner state
+  const [discoverySuburbs, setDiscoverySuburbs] = useState("Surry Hills, Newtown, Marrickville");
+  const [discoveryMinLand, setDiscoveryMinLand] = useState("600");
+  const [discoveryRunning, setDiscoveryRunning] = useState(false);
+  const [discoveryResult, setDiscoveryResult] = useState<RunDiscoveryResponse | null>(null);
+
   // Pipeline runner state
   const [pipelineDealId, setPipelineDealId] = useState("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
   const [pipelineAddress, setPipelineAddress] = useState("247 Geelong Road, Sunshine West VIC 3020");
@@ -189,6 +196,41 @@ export default function OpsPage() {
       setTimeout(() => setToastMsg(null), 4000);
     } finally {
       setProcessingId(null);
+    }
+  }
+
+  async function handleRunDiscovery() {
+    const suburbs = discoverySuburbs
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (suburbs.length === 0) return;
+    setDiscoveryRunning(true);
+    setDiscoveryResult(null);
+    try {
+      const res = await fetch("/api/run-discovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          suburbs,
+          min_land_area: parseInt(discoveryMinLand, 10) || 600,
+        }),
+      });
+      const json = (await res.json()) as RunDiscoveryResponse;
+      setDiscoveryResult(json);
+      if (json.success && json.total_candidates > 0) {
+        setToastMsg(`Discovery found ${json.total_candidates} candidate${json.total_candidates === 1 ? "" : "s"} ✓`);
+        setTimeout(() => setToastMsg(null), 4000);
+      }
+    } catch (err) {
+      setDiscoveryResult({
+        success: false,
+        error: err instanceof Error ? err.message : "Unknown error",
+        discovered: [],
+        total_candidates: 0,
+      });
+    } finally {
+      setDiscoveryRunning(false);
     }
   }
 
@@ -427,6 +469,97 @@ export default function OpsPage() {
 
           </div>
         ) : null}
+
+        {/* ── Discovery Runner ── */}
+        <Card className="border-border/70 bg-card/90">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Zap className="size-4 text-primary" />
+              Run Discovery
+            </CardTitle>
+            <CardDescription>
+              Pull live NSW listings from Domain and score them as deal candidates. Enter suburbs separated by commas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">NSW Suburbs (comma-separated)</label>
+                <input
+                  className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+                  value={discoverySuburbs}
+                  onChange={(e) => setDiscoverySuburbs(e.target.value)}
+                  placeholder="Surry Hills, Newtown, Marrickville"
+                  disabled={discoveryRunning}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Min. land area (m²)</label>
+                <input
+                  className="w-full rounded-xl border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+                  value={discoveryMinLand}
+                  onChange={(e) => setDiscoveryMinLand(e.target.value)}
+                  placeholder="600"
+                  type="number"
+                  min={200}
+                  max={5000}
+                  disabled={discoveryRunning}
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={() => void handleRunDiscovery()}
+              disabled={discoveryRunning || !discoverySuburbs.trim()}
+              className="gap-2"
+            >
+              {discoveryRunning ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Zap className="size-4" />
+              )}
+              {discoveryRunning ? "Searching listings…" : "Run Discovery"}
+            </Button>
+
+            {discoveryResult && (
+              <div className="space-y-2">
+                {discoveryResult.error ? (
+                  <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                    {discoveryResult.error}
+                  </div>
+                ) : null}
+
+                {discoveryResult.discovered.length > 0 ? (
+                  <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70">
+                    {discoveryResult.discovered.map((r: DiscoverySuburbResult) => (
+                      <div key={r.suburb} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <span className="font-medium">{r.suburb}</span>
+                        <Badge variant={r.candidate_count > 0 ? "default" : "outline"}>
+                          {r.candidate_count} candidate{r.candidate_count === 1 ? "" : "s"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className={`rounded-xl px-4 py-3 text-sm font-medium ${
+                  discoveryResult.success && discoveryResult.total_candidates > 0
+                    ? "bg-green-50 text-green-800 border border-green-200"
+                    : discoveryResult.success
+                    ? "bg-muted/50 text-muted-foreground border border-border/70"
+                    : "bg-destructive/5 text-destructive border border-destructive/20"
+                }`}>
+                  {discoveryResult.success
+                    ? discoveryResult.total_candidates > 0
+                      ? `✓ ${discoveryResult.total_candidates} candidate${discoveryResult.total_candidates === 1 ? "" : "s"} found — check the Feed to see new deals.`
+                      : "Discovery ran but no candidates met the minimum land area filter."
+                    : "Discovery finished with errors."}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* ── Pipeline Runner ── */}
         <Card className="border-border/70 bg-card/90">
