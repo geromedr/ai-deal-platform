@@ -9,6 +9,11 @@ export type RunDiscoveryRequest = {
 export type DiscoverySuburbResult = {
   suburb: string;
   candidate_count: number;
+  total_returned?: number;
+  property_listings?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  debug_sample?: any[];
+  error?: string;
 };
 
 export type RunDiscoveryResponse = {

@@ -82,8 +82,26 @@ serve(createAgentHandler({ agentName: "domain-discovery-agent" }, async (req) =>
       const results: DomainSearchResult[] = await searchRes.json()
       const listings = Array.isArray(results) ? results : []
 
-      const candidates = listings
-        .filter((r) => r.type === "PropertyListing" && r.listing)
+      const propertyListings = listings.filter((r) => r.type === "PropertyListing" && r.listing)
+
+      // Debug: sample land area values from first 3 results to diagnose field mapping
+      const debugSample = propertyListings.slice(0, 3).map((r) => {
+        const l = r.listing!
+        const pd = l.propertyDetails ?? {}
+        return {
+          id: l.id,
+          headline: l.headline,
+          landArea_direct: (pd as Record<string, unknown>).landArea,
+          landArea_typed: pd.landArea,
+          propertyType: pd.propertyType,
+          allPropertyTypes: pd.allPropertyTypes,
+          addressKeys: Object.keys(pd.address ?? {}),
+          pdKeys: Object.keys(pd),
+          listingKeys: Object.keys(l),
+        }
+      })
+
+      const candidates = propertyListings
         .map((r) => {
           const l = r.listing!
           const pd = l.propertyDetails ?? {}
@@ -121,7 +139,10 @@ serve(createAgentHandler({ agentName: "domain-discovery-agent" }, async (req) =>
       discovered.push({
         suburb,
         candidate_count: candidates.length,
-      })
+        total_returned: listings.length,
+        property_listings: propertyListings.length,
+        debug_sample: debugSample,
+      } as typeof discovered[number])
     }
 
     return new Response(JSON.stringify({ success: true, discovered }), {
