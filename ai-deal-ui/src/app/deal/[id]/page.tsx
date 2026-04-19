@@ -26,6 +26,7 @@ import DealChat from "@/components/deal/deal-chat";
 import DealTimeline from "@/components/deal/deal-timeline";
 import DealReports from "@/components/deal/deal-reports";
 import InvestorPanel from "@/components/deal/investor-panel";
+import OutboundEmailPanel from "@/components/deal/outbound-email-panel";
 import WorkspaceTabs from "@/components/deal/workspace-tabs";
 import { getDealContext } from "@/lib/api/getDealContext";
 import { supabase } from "@/lib/supabase";
@@ -407,7 +408,16 @@ async function DealWorkspaceContent({
   currentIndex: number;
 }) {
   const data = await getDealContext(dealId);
-  const currentDecision = await getLatestDecision(dealId);
+  const [currentDecision, emailApprovalCount] = await Promise.all([
+    getLatestDecision(dealId),
+    supabase
+      .from("approval_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("deal_id", dealId)
+      .eq("approval_type", "outbound_email")
+      .eq("status", "pending")
+      .then(({ count }) => count ?? 0),
+  ]);
 
   const deal = asRecord(data.deal);
   const feed = asRecord(data.feed);
@@ -663,6 +673,7 @@ async function DealWorkspaceContent({
         <WorkspaceTabs
           riskCount={risks.length}
           taskCount={tasks.length}
+          emailCount={emailApprovalCount}
 
           brief={
             <section className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
@@ -946,6 +957,12 @@ async function DealWorkspaceContent({
                   ))}
                 </CardContent>
               </Card>
+            </section>
+          }
+
+          emails={
+            <section className="flex flex-col gap-4">
+              <OutboundEmailPanel dealId={dealId} />
             </section>
           }
 

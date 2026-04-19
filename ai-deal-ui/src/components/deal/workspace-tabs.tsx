@@ -2,13 +2,14 @@
 
 import { useCallback, useRef, useState } from "react";
 
-type Tab = "brief" | "financials" | "risks" | "investors" | "timeline" | "reports" | "chat";
+type Tab = "brief" | "financials" | "risks" | "investors" | "emails" | "timeline" | "reports" | "chat";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "brief",      label: "Brief" },
   { id: "financials", label: "Financials" },
   { id: "risks",      label: "Risks & Tasks" },
   { id: "investors",  label: "Investors" },
+  { id: "emails",     label: "Emails" },
   { id: "timeline",   label: "Timeline" },
   { id: "reports",    label: "Reports" },
   { id: "chat",       label: "Chat" },
@@ -19,12 +20,14 @@ type WorkspaceTabsProps = {
   financials: React.ReactNode;
   risks: React.ReactNode;
   investors: React.ReactNode;
+  emails: React.ReactNode;
   timeline: React.ReactNode;
   reports: React.ReactNode;
   chat: React.ReactNode;
   /** Badge counts shown next to tab labels */
   riskCount?: number;
   taskCount?: number;
+  emailCount?: number;
 };
 
 export default function WorkspaceTabs({
@@ -32,11 +35,13 @@ export default function WorkspaceTabs({
   financials,
   risks,
   investors,
+  emails,
   timeline,
   reports,
   chat,
   riskCount = 0,
   taskCount = 0,
+  emailCount = 0,
 }: WorkspaceTabsProps) {
   const [active, setActive] = useState<Tab>("brief");
   const tabRefs = useRef<Map<Tab, HTMLButtonElement>>(new Map());
@@ -108,6 +113,7 @@ export default function WorkspaceTabs({
             >
               {tab.label}
               {tab.id === "risks" ? badge(riskCount + taskCount) : null}
+              {tab.id === "emails" ? badge(emailCount) : null}
             </button>
           );
         })}
@@ -120,6 +126,7 @@ export default function WorkspaceTabs({
           financials,
           risks,
           investors,
+          emails,
           timeline,
           reports,
           chat,
