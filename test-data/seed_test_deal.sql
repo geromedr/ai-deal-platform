@@ -5,6 +5,8 @@
 -- ============================================================
 
 -- 1. Insert into deals table (the feed reads from here)
+--    Note: omits the 'metadata' column which is not present on the
+--    hosted DB. All deal-level details are carried in site_candidates.raw_data.
 INSERT INTO public.deals (
   id,
   address,
@@ -13,8 +15,7 @@ INSERT INTO public.deals (
   postcode,
   status,
   stage,
-  source,
-  metadata
+  source
 ) VALUES (
   'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
   '247 Geelong Road',
@@ -23,19 +24,7 @@ INSERT INTO public.deals (
   '3020',
   'active',
   'opportunity',
-  'manual_test',
-  '{
-    "deal_name": "Sunshine West Dev Site",
-    "strategy": "residential_development",
-    "property_type": "land",
-    "land_area": 1240,
-    "price_text": "$1,850,000",
-    "url": "",
-    "notes": "Corner lot, RGZ2 zoning. 800m from Sunshine station. DA potential for 6-8 townhouses or 3-storey apartments. Vendor motivated.",
-    "score": 78,
-    "priority_score": 81,
-    "summary": "Corner development site in Sunshine West. RGZ2 zoning allows 3-storey residential. Strong rental demand driven by proximity to Sunshine station and Western Ring Road. Comparable sales at $2.1–2.3M suggest reasonable entry price."
-  }'::jsonb
+  'manual_test'
 ) ON CONFLICT (id) DO NOTHING;
 
 -- 2. Insert into site_candidates (pipeline agents use this table)
@@ -99,15 +88,18 @@ INSERT INTO public.site_candidates (
 -- ============================================================
 -- After running this seed:
 --
--- The deal will appear in your feed at:
---   Deal ID (deals):            a1b2c3d4-e5f6-7890-abcd-ef1234567890
---   Site Candidate ID:          b2c3d4e5-f6a7-8901-bcde-f12345678901
+--   Deal ID (deals):        a1b2c3d4-e5f6-7890-abcd-ef1234567890
+--   Site Candidate ID:      b2c3d4e5-f6a7-8901-bcde-f12345678901
 --
 -- Use the "Run Pipeline" button in the Ops page with:
---   Deal ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
---   Address: 247 Geelong Road, Sunshine West VIC 3020
+--   Deal ID:  a1b2c3d4-e5f6-7890-abcd-ef1234567890
+--   Address:  247 Geelong Road, Sunshine West VIC 3020
 --
 -- To reset (clean up before re-running agents):
 --   DELETE FROM public.deals           WHERE id = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 --   DELETE FROM public.site_candidates WHERE id = 'b2c3d4e5-f6a7-8901-bcde-f12345678901';
+--
+-- NOTE: If you still need the metadata column on deals (some agents
+-- write to it), run this first:
+--   ALTER TABLE public.deals ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
 -- ============================================================
