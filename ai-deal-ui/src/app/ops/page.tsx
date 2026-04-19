@@ -8,11 +8,14 @@ import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle2,
+  Circle,
   Clock,
   Loader2,
+  Play,
   RefreshCcw,
   ShieldCheck,
   TrendingUp,
+  XCircle,
   Zap,
 } from "lucide-react";
 
@@ -26,19 +29,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { OpsSummaryResponse } from "@/app/api/ops-summary/route";
+import type { RunPipelineResponse, PipelineStep } from "@/app/api/run-pipeline/route";
+import { sentenceCase as sharedSentenceCase, formatDateTime as sharedFormatDateTime } from "@/lib/utils/format";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-function sentenceCase(value: string | null | undefined) {
-  if (!value) return "—";
-  return value.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function formatDateTime(value: unknown) {
-  if (typeof value !== "string") return "—";
-  const d = new Date(value);
-  return isNaN(d.getTime()) ? "—" : d.toLocaleString("en-AU", { dateStyle: "short", timeStyle: "short" });
-}
+const sentenceCase = sharedSentenceCase;
+const formatDateTime = (v: unknown) => sharedFormatDateTime(typeof v === "string" ? v : null);
 
 function healthVariant(status: string | null): "default" | "secondary" | "destructive" | "outline" {
   if (status === "healthy") return "default";
@@ -146,6 +143,12 @@ export default function OpsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  // Pipeline runner state
+  const [pipelineDealId, setPipelineDealId] = useState("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+  const [pipelineAddress, setPipelineAddress] = useState("247 Geelong Road, Sunshine West VIC 3020");
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [pipelineResult, setPipelineResult] = useState<RunPipelineResponse | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -186,6 +189,33 @@ export default function OpsPage() {
       setTimeout(() => setToastMsg(null), 4000);
     } finally {
       setProcessingId(null);
+    }
+  }
+
+  async function handleRunPipeline() {
+    setPipelineRunning(true);
+    setPipelineResult(null);
+    try {
+      const res = await fetch("/api/run-pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deal_id: pipelineDealId.trim(), address: pipelineAddress.trim() }),
+      });
+      const json = (await res.json()) as RunPipelineResponse;
+      setPipelineResult(json);
+      if (json.success) {
+        setToastMsg("Pipeline completed ✓");
+        setTimeout(() => setToastMsg(null), 4000);
+      }
+    } catch (err) {
+      setPipelineResult({
+        success: false,
+        deal_id: pipelineDealId,
+        steps: [],
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
+    } finally {
+      setPipelineRunning(false);
     }
   }
 
@@ -397,6 +427,100 @@ export default function OpsPage() {
 
           </div>
         ) : null}
+
+        {/* ── Pipeline Runner ── */}
+        <Card className="border-border/70 bg-card/90">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Play className="size-4 text-primary" />
+              Run Deal Pipeline
+            </CardTitle>
+            <CardDescription>
+              Manually trigger the full agent pipeline for a deal. Run the SQL seed first
+              (see <code className="rounded bg-muted px-1 text-xs">test-data/seed_test_deal.sql</code>),
+              then press Run. The test deal ID is pre-filled below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Deal ID</label>
+                <input
+                  type="text"
+                  value={pipelineDealId}
+                  onChange={(e) => setPipelineDealId(e.target.value)}
+                  placeholder="UUID from deals table"
+                  className="w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 font-mono"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Address</label>
+                <input
+                  type="text"
+                  value={pipelineAddress}
+                  onChange={(e) => setPipelineAddress(e.target.value)}
+                  placeholder="Full street address"
+                  className="w-full rounded-lg border border-border/70 bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={() => void handleRunPipeline()}
+              disabled={pipelineRunning || !pipelineDealId.trim() || !pipelineAddress.trim()}
+              className="gap-2"
+            >
+              {pipelineRunning ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Play className="size-4" />
+              )}
+              {pipelineRunning ? "Running pipeline…" : "Run Full Pipeline"}
+            </Button>
+
+            {/* Step progress */}
+            {(pipelineRunning || pipelineResult) && (
+              <div className="space-y-2 pt-1">
+                {pipelineRunning && !pipelineResult && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Running agents — this may take 30–90 seconds…
+                  </div>
+                )}
+                {pipelineResult?.steps.map((step: PipelineStep) => (
+                  <div key={step.name} className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
+                    {step.status === "done" ? (
+                      <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" />
+                    ) : step.status === "error" ? (
+                      <XCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
+                    ) : (
+                      <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{step.name}</p>
+                      {step.message && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{step.message}</p>
+                      )}
+                    </div>
+                    {step.durationMs != null && (
+                      <span className="shrink-0 text-xs text-muted-foreground">{(step.durationMs / 1000).toFixed(1)}s</span>
+                    )}
+                  </div>
+                ))}
+                {pipelineResult && (
+                  <div className={`rounded-xl px-4 py-3 text-sm font-medium ${pipelineResult.success ? "bg-green-50 text-green-800 border border-green-200" : "bg-destructive/5 text-destructive border border-destructive/20"}`}>
+                    {pipelineResult.success
+                      ? "✓ Pipeline completed — refresh the deal workspace to see results."
+                      : `Pipeline finished with errors. Check step details above.`}
+                    {pipelineResult.error && (
+                      <p className="mt-1 text-xs opacity-80">{pipelineResult.error}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Empty state */}
         {!loading && !error && topAgents.length === 0 && queue.length === 0 ? (
