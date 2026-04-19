@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callEdgeFunction } from "@/lib/api/callEdgeFunction";
+import { supabase } from "@/lib/supabase";
 
 export type PipelineStep = {
   name: string;
@@ -80,13 +81,38 @@ export async function POST(req: NextRequest) {
     }
 
     // Step 3: Notification agent (best-effort — don't fail pipeline if this errors)
-    results.push(
-      await runStep("notification-agent", () =>
-        callEdgeFunction("notification-agent", {
-          deal_id: dealId,
-        }),
-      ),
-    );
+    // Requires deal_feed_id + trigger_event + summary, which come from the deal_feed
+    // table written by rule-engine-agent. Look them up before calling.
+    {
+      const { data: feedRow } = await supabase
+        .from("deal_feed")
+        .select("id, trigger_event, summary, score, priority_score")
+        .eq("deal_id", dealId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!feedRow?.id) {
+        results.push({
+          name: "notification-agent",
+          durationMs: 0,
+          error: "Skipped — no deal_feed row found for this deal (run rule-engine-agent first, or trigger a pipeline that populates deal_feed)",
+        });
+      } else {
+        results.push(
+          await runStep("notification-agent", () =>
+            callEdgeFunction("notification-agent", {
+              deal_id: dealId,
+              deal_feed_id: feedRow.id,
+              trigger_event: feedRow.trigger_event ?? "manual_pipeline_run",
+              summary: feedRow.summary ?? "Pipeline triggered manually from Ops dashboard.",
+              score: feedRow.score ?? null,
+              priority_score: feedRow.priority_score ?? null,
+            }),
+          ),
+        );
+      }
+    }
 
     const steps: PipelineStep[] = results.map((r) => ({
       name: r.name,
