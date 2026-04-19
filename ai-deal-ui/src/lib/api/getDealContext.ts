@@ -4,6 +4,10 @@ type DealContextResponse = {
   deal: RecordLike | null;
   feed: RecordLike | null;
   tasks: RecordLike[];
+  financials: RecordLike[];
+  risks: RecordLike[];
+  site_intelligence: RecordLike | null;
+  communications: RecordLike[];
 };
 
 function asRecord(value: unknown): RecordLike | null {
@@ -34,9 +38,19 @@ export async function getDealContext(dealId: string): Promise<DealContextRespons
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+  const empty: DealContextResponse = {
+    deal: null,
+    feed: null,
+    tasks: [],
+    financials: [],
+    risks: [],
+    site_intelligence: null,
+    communications: [],
+  };
+
   if (!supabaseUrl || !anonKey) {
-    console.log("getDealContext tasks", []);
-    return { deal: null, feed: null, tasks: [] };
+    console.error("getDealContext: missing env vars (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)");
+    return empty;
   }
 
   try {
@@ -55,24 +69,25 @@ export async function getDealContext(dealId: string): Promise<DealContextRespons
 
     if (!res.ok) {
       console.error("get-deal-context failed:", getErrorMessage(payload) ?? "Failed to load deal");
-      console.log("getDealContext tasks", []);
-      return { deal: null, feed: null, tasks: [] };
+      return empty;
     }
 
     const record = asRecord(payload);
     const deal = record ? asRecord(record.deal) : null;
     const feed = record ? asRecord(record.feed) : null;
     const tasks = record ? asRecordArray(record.tasks) : [];
+    const financials = record ? asRecordArray(record.financials) : [];
+    const risks = record ? asRecordArray(record.risks) : [];
+    const siteIntelligence = record ? asRecord(record.site_intelligence) : null;
+    const communications = record ? asRecordArray(record.communications) : [];
 
-    console.log("getDealContext tasks", tasks);
 
-    return { deal, feed, tasks };
+    return { deal, feed, tasks, financials, risks, site_intelligence: siteIntelligence, communications };
   } catch (error) {
     console.error(
       "get-deal-context request failed:",
       error instanceof Error ? error.message : "Failed to load deal",
     );
-    console.log("getDealContext tasks", []);
-    return { deal: null, feed: null, tasks: [] };
+    return empty;
   }
 }

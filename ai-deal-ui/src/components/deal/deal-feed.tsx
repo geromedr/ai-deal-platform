@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDealFeed, type DealFeedItem } from "@/lib/api/getDealFeed";
+import { SCORE_THRESHOLDS } from "@/lib/constants/scoring";
 
 type FeedFilter = "all" | "active" | "archived";
 type SortField = "score" | "priority" | "date";
@@ -45,7 +46,7 @@ export default function DealFeed() {
   const feedStats = useMemo(() => {
     const deduped = Array.from(new Map(deals.map((d) => [d.deal_id, d])).values());
     const total = deduped.length;
-    const highConviction = deduped.filter((d) => (d.score ?? 0) >= 85).length;
+    const highConviction = deduped.filter((d) => (d.score ?? 0) >= SCORE_THRESHOLDS.HIGH).length;
     const scores = deduped.map((d) => d.score).filter((s): s is number => s !== null);
     const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
     const strategyCounts: Record<string, number> = {};

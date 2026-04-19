@@ -74,7 +74,9 @@ export default function DealReports({ dealId }: DealReportsProps) {
 
     fetch(`/api/deal-reports?deal_id=${encodeURIComponent(dealId)}`)
       .then(async (res) => {
-        const json = (await res.json()) as ReportsListResponse & { error?: string };
+        const json = await res
+          .json()
+          .catch(() => { throw new Error(`Request failed (${res.status})`); }) as ReportsListResponse & { error?: string };
         if (!res.ok || json.error) throw new Error(json.error ?? `Request failed (${res.status})`);
         return json;
       })

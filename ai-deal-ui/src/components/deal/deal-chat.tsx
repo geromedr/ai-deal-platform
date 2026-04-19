@@ -6,6 +6,7 @@ import { Bot, Loader2, Send, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ChatMessage, DealChatRequest } from "@/app/api/deal-chat/route";
+import { renderMarkdown } from "@/lib/utils/markdown";
 
 type DealChatProps = {
   dealId: string;
@@ -36,15 +37,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             ? "rounded-tr-sm bg-primary text-primary-foreground"
             : "rounded-tl-sm border border-border/70 bg-background text-foreground"
         }`}
-        // Simple markdown bold: **text** → <strong>text</strong>
-        dangerouslySetInnerHTML={{
-          __html: message.content
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-            .replace(/\n/g, "<br />"),
-        }}
+        dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
       />
     </div>
   );

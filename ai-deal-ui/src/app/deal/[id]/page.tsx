@@ -29,6 +29,14 @@ import InvestorPanel from "@/components/deal/investor-panel";
 import WorkspaceTabs from "@/components/deal/workspace-tabs";
 import { getDealContext } from "@/lib/api/getDealContext";
 import { supabase } from "@/lib/supabase";
+import {
+  formatCurrency,
+  formatDateTime,
+  formatNumber,
+  formatPercent,
+  sentenceCaseOrNA as sentenceCase,
+} from "@/lib/utils/format";
+import { SCORE_THRESHOLDS } from "@/lib/constants/scoring";
 
 type RecordLike = Record<string, unknown>;
 type CurrentDecision = "BUY" | "REVIEW" | "PASS" | null;
@@ -87,51 +95,6 @@ function firstNumber(source: unknown, paths: string[]): number | null {
   return null;
 }
 
-function formatNumber(value: number | null, options?: Intl.NumberFormatOptions) {
-  if (value === null) return "Not available";
-
-  return new Intl.NumberFormat("en-AU", {
-    maximumFractionDigits: 0,
-    ...options,
-  }).format(value);
-}
-
-function formatCurrency(value: number | null) {
-  if (value === null) return "Not available";
-
-  return new Intl.NumberFormat("en-AU", {
-    style: "currency",
-    currency: "AUD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatPercent(value: number | null) {
-  if (value === null) return "Not available";
-  // Normalise: values <= 1 are decimals (0.18 → 18%), values > 1 are already percentages
-  const pct = value <= 1 ? value * 100 : value;
-  return `${pct.toFixed(pct % 1 === 0 ? 0 : 1)}%`;
-}
-
-function sentenceCase(value: string | null) {
-  if (!value) return "Not available";
-  return value
-    .replace(/[_-]/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function formatDateTime(value: unknown) {
-  if (typeof value !== "string" || value.trim().length === 0) return "Not available";
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-
-  return new Intl.DateTimeFormat("en-AU", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(parsed);
-}
-
 function getHighestRiskSeverity(risks: RecordLike[]) {
   const severityRank: Record<string, number> = {
     critical: 4,
@@ -170,7 +133,7 @@ function marginBand(pct: number): { label: string; qualifier: string } {
 }
 
 function scoreBand(score: number): string {
-  if (score >= 85) return "high conviction";
+  if (score >= SCORE_THRESHOLDS.HIGH) return "high conviction";
   if (score >= 65) return "moderate conviction";
   if (score >= 40) return "early-stage";
   return "low-confidence";
@@ -443,9 +406,7 @@ async function DealWorkspaceContent({
   allIds: string[];
   currentIndex: number;
 }) {
-  console.log("FETCHING DEAL ID", dealId);
   const data = await getDealContext(dealId);
-  console.log("CONTEXT RESPONSE", data);
   const currentDecision = await getLatestDecision(dealId);
 
   const deal = asRecord(data.deal);
@@ -937,7 +898,7 @@ async function DealWorkspaceContent({
                               {sentenceCase(asString(task.status) ?? "open")}
                             </span>
                             <span className="text-muted-foreground">
-                              {formatDateTime(task.created_at)}
+                              {formatDateTime(asString(task.created_at))}
                             </span>
                           </div>
                         ))}
@@ -1019,6 +980,31 @@ async function DealWorkspaceContent({
       </div>
     </main>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const { data } = await supabase
+    .from("site_candidates")
+    .select("address, suburb, state")
+    .eq("id", id)
+    .maybeSingle();
+
+  const location = data
+    ? [data.address, data.suburb, data.state].filter(Boolean).join(", ")
+    : null;
+
+  const title = location ? `${location} — Deal Workspace` : "Deal Workspace";
+  return {
+    title,
+    description: location
+      ? `Review financials, risks, and investor data for ${location}.`
+      : "Review deal financials, risks, and investor data.",
+  };
 }
 
 export default async function DealPage({

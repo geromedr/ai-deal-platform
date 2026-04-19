@@ -6,97 +6,109 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { type DealFeedItem } from "@/lib/api/getDealFeed";
+import { sentenceCase } from "@/lib/utils/format";
+import { SCORE_THRESHOLDS } from "@/lib/constants/scoring";
 
 type DealCardProps = {
   deal: DealFeedItem;
+  filter?: string;
+  allIds?: string[];
+  index?: number;
 };
 
 function formatLocation(deal: DealFeedItem) {
-  const location = [deal.suburb, deal.state].filter(Boolean).join(", ");
-  return location || "Location pending";
+  const parts = [deal.suburb, deal.state].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : deal.address ?? "Location pending";
 }
 
-function getValueLabel(deal: DealFeedItem) {
+function getTitle(deal: DealFeedItem) {
+  return deal.deal_name || deal.address || deal.summary || "Untitled deal";
+}
+
+function getScoreBadge(deal: DealFeedItem) {
   const score = deal.score ?? 0;
   const priorityScore = deal.priority_score ?? 0;
-
-  if (score >= 85 || priorityScore >= 85) {
-    return { label: "High Value", variant: "default" as const };
-  }
-
-  if (score >= 60 || priorityScore >= 60) {
-    return { label: "Watchlist", variant: "secondary" as const };
-  }
-
+  if (score >= SCORE_THRESHOLDS.HIGH || priorityScore >= SCORE_THRESHOLDS.HIGH) return { label: "High Value", variant: "default" as const };
+  if (score >= SCORE_THRESHOLDS.MEDIUM || priorityScore >= SCORE_THRESHOLDS.MEDIUM) return { label: "Watchlist", variant: "secondary" as const };
   return { label: "Needs Review", variant: "outline" as const };
 }
 
-export function DealCard({ deal }: DealCardProps) {
+function buildDealUrl(dealId: string, filter: string, allIds: string[], index: number) {
+  const params = new URLSearchParams();
+  params.set("filter", filter);
+  params.set("i", String(index));
+  params.set("ids", allIds.join(","));
+  return `/deal/${dealId}?${params.toString()}`;
+}
+
+export function DealCard({ deal, filter = "all", allIds = [], index = 0 }: DealCardProps) {
   const router = useRouter();
-  const valueLabel = getValueLabel(deal);
+  const scoreBadge = getScoreBadge(deal);
+  const title = getTitle(deal);
+  const url = buildDealUrl(deal.deal_id, filter, allIds, index);
+
+  // Only show summary in body if it adds something not already in the title
+  const showSummary =
+    deal.summary &&
+    deal.summary !== title &&
+    deal.summary !== deal.address;
 
   return (
     <Card
       className="cursor-pointer border-border/70 bg-card/95 shadow-sm transition hover:shadow-lg"
-      onClick={() => router.push(`/deal/${deal.deal_id}`)}
+      onClick={() => router.push(url)}
     >
       <CardHeader className="gap-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
-            <CardTitle className="text-lg font-semibold">
-              {deal.summary || "No summary"}
-            </CardTitle>
+            <CardTitle className="text-lg font-semibold">{title}</CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Badge variant={valueLabel.variant}>{valueLabel.label}</Badge>
-              {deal.asset_type ? <Badge variant="outline">{deal.asset_type}</Badge> : null}
-              {deal.status ? <Badge variant="ghost">{deal.status}</Badge> : null}
+              <Badge variant={scoreBadge.variant}>{scoreBadge.label}</Badge>
+              {deal.strategy ? (
+                <Badge variant="outline">{sentenceCase(deal.strategy)}</Badge>
+              ) : null}
+              {deal.stage ? (
+                <Badge variant="ghost">{sentenceCase(deal.stage)}</Badge>
+              ) : null}
             </div>
           </div>
           <div className="text-right text-sm text-muted-foreground">
-            <div>Score: {deal.score ?? "N/A"}</div>
-            <div>Priority: {deal.priority_score ?? "N/A"}</div>
+            <div>Score: {deal.score ?? "—"}</div>
+            <div>Priority: {deal.priority_score ?? "—"}</div>
           </div>
         </div>
       </CardHeader>
+
       <CardContent className="space-y-3">
-        <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+        {showSummary ? (
+          <p className="text-sm text-muted-foreground">{deal.summary}</p>
+        ) : null}
+        <div className="grid gap-3 text-sm sm:grid-cols-3">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em]">Location</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Location</div>
             <div className="mt-1 text-foreground">{formatLocation(deal)}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-[0.18em]">Source</div>
-            <div className="mt-1 text-foreground">{deal.source_name || "Unknown"}</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Strategy</div>
+            <div className="mt-1 text-foreground">{sentenceCase(deal.strategy) ?? "—"}</div>
           </div>
           <div>
-            <div className="text-xs uppercase tracking-[0.18em]">Deal ID</div>
-            <div className="mt-1 break-all text-foreground">{deal.deal_id}</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Stage</div>
+            <div className="mt-1 text-foreground">{sentenceCase(deal.stage) ?? "—"}</div>
           </div>
         </div>
       </CardContent>
+
       <CardFooter className="justify-between gap-2 border-t border-border/70 bg-muted/30">
-        <span className="text-sm text-muted-foreground">
-          Action hooks ready for workflow wiring.
+        <span className="font-mono text-xs text-muted-foreground">
+          {deal.deal_id.slice(0, 8)}…
         </span>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={(event) => event.stopPropagation()}>
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={(event) => event.stopPropagation()}
-          >
-            Allocate
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(event) => event.stopPropagation()}
-          >
-            View
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          onClick={(e) => { e.stopPropagation(); router.push(url); }}
+        >
+          Open
+        </Button>
       </CardFooter>
     </Card>
   );

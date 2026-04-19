@@ -46,7 +46,9 @@ export default function InvestorPanel({ dealId }: InvestorPanelProps) {
 
     fetch(`/api/investor-matches?deal_id=${encodeURIComponent(dealId)}`)
       .then(async (res) => {
-        const json = (await res.json()) as InvestorActionsResponse & { error?: string };
+        const json = await res
+          .json()
+          .catch(() => { throw new Error(`Request failed (${res.status})`); }) as InvestorActionsResponse & { error?: string };
         if (!res.ok || json.error) throw new Error(json.error ?? `Request failed (${res.status})`);
         return json;
       })

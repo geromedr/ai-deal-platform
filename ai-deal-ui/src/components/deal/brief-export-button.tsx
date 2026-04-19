@@ -1,6 +1,7 @@
 "use client";
 
 import { Download } from "lucide-react";
+import { escapeHtml, renderMarkdown } from "@/lib/utils/markdown";
 
 type DealNarrative = {
   verdict: string;
@@ -21,13 +22,6 @@ type BriefExportButtonProps = {
   score?: number | null;
 };
 
-function escapHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-}
 
 function buildPrintHtml(
   dealName: string,
@@ -52,8 +46,8 @@ function buildPrintHtml(
     .map(
       (s) => `
       <div class="signal">
-        <div class="signal-label">${escapHtml(s.label)}</div>
-        <div class="signal-value">${escapHtml(s.value)}</div>
+        <div class="signal-label">${escapeHtml(s.label)}</div>
+        <div class="signal-value">${escapeHtml(s.value)}</div>
       </div>`,
     )
     .join("");
@@ -62,8 +56,8 @@ function buildPrintHtml(
     .map(
       (s) => `
       <div class="section">
-        <div class="section-label">${escapHtml(s.label)}</div>
-        <p class="section-body">${escapHtml(s.text)}</p>
+        <div class="section-label">${escapeHtml(s.label)}</div>
+        <p class="section-body">${renderMarkdown(s.text)}</p>
       </div>`,
     )
     .join("");
@@ -72,7 +66,7 @@ function buildPrintHtml(
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Deal Brief — ${escapHtml(dealName)}</title>
+  <title>Deal Brief — ${escapeHtml(dealName)}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -207,7 +201,7 @@ function buildPrintHtml(
       <div class="brand">AI Deal Platform · Deal Brief</div>
       <div class="date">${now}</div>
     </div>
-    <h1>${escapHtml(dealName)}</h1>
+    <h1>${escapeHtml(dealName)}</h1>
     ${score != null ? `<div class="score-pill">Score: ${score}</div>` : ""}
   </div>
 
