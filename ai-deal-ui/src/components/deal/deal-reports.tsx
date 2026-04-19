@@ -165,9 +165,18 @@ export default function DealReports({ dealId }: DealReportsProps) {
         ) : null}
 
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading reports…
+          <div className="space-y-3 animate-pulse" aria-label="Loading reports">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="rounded-xl border border-border/50 bg-muted/30 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-2 flex-1">
+                    <div className="h-3.5 w-2/3 rounded bg-muted" />
+                    <div className="h-2.5 w-1/3 rounded bg-muted/70" />
+                  </div>
+                  <div className="h-5 w-16 rounded-full bg-muted shrink-0" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -175,8 +184,10 @@ export default function DealReports({ dealId }: DealReportsProps) {
             <span>{error}</span>
           </div>
         ) : reports.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/70 bg-background/50 p-4 text-sm text-muted-foreground">
-            No reports found for this deal. Use the Generate button to create an investment report.
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/50 px-4 py-6 text-center text-sm text-muted-foreground">
+            <FileText className="mx-auto mb-2 size-5 opacity-40" />
+            <p className="font-medium text-foreground/70">No reports yet</p>
+            <p className="mt-1">Use the <span className="font-medium text-foreground/80">Generate Report</span> button above to create an AI-powered investment report for this deal.</p>
           </div>
         ) : (
           <div className="space-y-3">

@@ -998,7 +998,7 @@ export async function generateMetadata({
     ? [data.address, data.suburb, data.state].filter(Boolean).join(", ")
     : null;
 
-  const title = location ? `${location} — Deal Workspace` : "Deal Workspace";
+  const title = location ?? "Deal Workspace";
   return {
     title,
     description: location

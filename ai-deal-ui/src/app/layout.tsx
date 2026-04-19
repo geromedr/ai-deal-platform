@@ -14,8 +14,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Deal UI",
-  description: "Deal Feed and workspace UI shell for the AI Deal Platform",
+  title: {
+    default: "AI Deal Platform",
+    template: "%s — AI Deal Platform",
+  },
+  description:
+    "AI-powered deal analysis platform for property investment — score, financials, risks, and investor matching in one workspace.",
+  openGraph: {
+    type: "website",
+    siteName: "AI Deal Platform",
+    title: "AI Deal Platform",
+    description:
+      "AI-powered deal analysis platform for property investment — score, financials, risks, and investor matching in one workspace.",
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function RootLayout({

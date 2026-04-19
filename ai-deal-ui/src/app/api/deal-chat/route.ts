@@ -95,16 +95,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: swap stub for real LLM call when AI_ENABLED=true
-    const aiEnabled = process.env.AI_ENABLED === "true";
-    let replyContent: string;
-
-    if (aiEnabled) {
-      // Placeholder for real AI integration
-      replyContent = `[AI integration coming soon] ${generateStubReply(lastUserMessage.content, dealContext)}`;
-    } else {
-      replyContent = generateStubReply(lastUserMessage.content, dealContext);
-    }
+    // TODO: replace generateStubReply() with a real LLM call when ready.
+    // Set AI_ENABLED=true in .env.local and implement the real path here
+    // (e.g. stream from Anthropic using dealContext as the system prompt).
+    const replyContent = generateStubReply(lastUserMessage.content, dealContext);
 
     const reply: ChatMessage = { role: "assistant", content: replyContent };
     return NextResponse.json({ message: reply } satisfies DealChatResponse);

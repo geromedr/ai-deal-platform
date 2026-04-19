@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Operations Dashboard — AI Deal Platform",
+  title: "Operations Dashboard",
   description: "Monitor agent activity, system health, and deal pipeline operations.",
 };
 

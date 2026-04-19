@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, TrendingUp, AlertCircle, Loader2 } from "lucide-react";
+import { Users, TrendingUp, AlertCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -81,9 +81,17 @@ export default function InvestorPanel({ dealId }: InvestorPanelProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading investor data…
+          <div className="space-y-2 animate-pulse" aria-label="Loading investor data">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 rounded-xl border border-border/50 bg-muted/30 px-4 py-3">
+                <div className="size-8 shrink-0 rounded-full bg-muted" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 rounded bg-muted" style={{ width: `${40 + i * 12}%` }} />
+                  <div className="h-2.5 w-24 rounded bg-muted/70" />
+                </div>
+                <div className="h-5 w-14 shrink-0 rounded-full bg-muted" />
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -91,8 +99,10 @@ export default function InvestorPanel({ dealId }: InvestorPanelProps) {
             <span>{error}</span>
           </div>
         ) : actions.length === 0 && matches.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/70 bg-background/50 p-4 text-sm text-muted-foreground">
-            No investor matches found for this deal. Run the investor-actions agent to generate suggestions.
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/50 px-4 py-6 text-center text-sm text-muted-foreground">
+            <Users className="mx-auto mb-2 size-5 opacity-40" />
+            <p className="font-medium text-foreground/70">No investor matches yet</p>
+            <p className="mt-1">The investor-actions agent will populate this panel with matched contacts and suggested outreach steps once it has run for this deal.</p>
           </div>
         ) : null}
 

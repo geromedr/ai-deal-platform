@@ -29,12 +29,15 @@ type GenerateReportResponse = {
 export type { ReportItem, ReportsListResponse, GenerateReportResponse };
 
 export async function GET(req: NextRequest) {
-  const dealId = req.nextUrl.searchParams.get("deal_id");
+  const dealId = req.nextUrl.searchParams.get("deal_id")?.trim();
   const reportType = req.nextUrl.searchParams.get("report_type");
 
+  if (!dealId) {
+    return NextResponse.json({ error: "deal_id is required" }, { status: 400 });
+  }
+
   try {
-    const body: Record<string, unknown> = { limit: 20 };
-    if (dealId) body.deal_id = dealId;
+    const body: Record<string, unknown> = { deal_id: dealId, limit: 20 };
     if (reportType) body.report_type = reportType;
 
     const result = await callEdgeFunction<ReportsListResponse>("get-deal-reports", body);

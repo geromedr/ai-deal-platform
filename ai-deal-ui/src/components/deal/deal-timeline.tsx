@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, AlertCircle, Loader2 } from "lucide-react";
+import { Activity, AlertCircle } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTimeShort, sentenceCase } from "@/lib/utils/format";
@@ -104,9 +104,19 @@ export default function DealTimeline({ dealId }: DealTimelineProps) {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Loading timeline…
+          <div className="space-y-0 animate-pulse pt-1" aria-label="Loading timeline">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="flex gap-4 pb-5">
+                <div className="flex flex-col items-center">
+                  <div className="mt-1.5 size-2.5 shrink-0 rounded-full bg-muted" />
+                  {i < 3 && <div className="mt-1.5 w-px flex-1 min-h-[28px] bg-border/40" />}
+                </div>
+                <div className="flex-1 space-y-2 pb-1">
+                  <div className="h-3 rounded bg-muted" style={{ width: `${55 + (i % 3) * 15}%` }} />
+                  <div className="h-2.5 w-24 rounded bg-muted/70" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -114,8 +124,10 @@ export default function DealTimeline({ dealId }: DealTimelineProps) {
             <span>{error}</span>
           </div>
         ) : events.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/70 bg-background/50 p-4 text-sm text-muted-foreground">
-            No activity events have been recorded for this deal yet.
+          <div className="rounded-xl border border-dashed border-border/70 bg-background/50 px-4 py-6 text-center text-sm text-muted-foreground">
+            <Activity className="mx-auto mb-2 size-5 opacity-40" />
+            <p className="font-medium text-foreground/70">No activity yet</p>
+            <p className="mt-1">Agent actions, decisions, and deal events will appear here automatically as they occur.</p>
           </div>
         ) : (
           <div className="pt-1">

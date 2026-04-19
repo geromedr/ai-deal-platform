@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "New Deal — AI Deal Platform",
+  title: "New Deal",
   description: "Submit a new property address to begin AI-powered deal analysis.",
 };
 
