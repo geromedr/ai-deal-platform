@@ -6,6 +6,7 @@ import {
   getMarginFromFinancialMetadata,
   parseNumber,
 } from "../_shared/deal-feed.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type RequestPayload = {
   capital_pool?: number;
@@ -18,13 +19,6 @@ const AGENT_NAME = "allocate-capital";
 const DEFAULT_MAX_DEALS = 5;
 const MAX_DEALS = 25;
 const ALLOWED_STATUSES = new Set(["proposed", "committed", "deployed"]);
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

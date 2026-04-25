@@ -3,13 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { insertTaskWithCompatibility } from "../_shared/action-layer-compat.ts";
 import { incrementDealPerformanceMetrics } from "../_shared/deal-feed.ts";
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
+import { jsonResponse } from "../_shared/utils.ts";
 
 function normalizeStatus(value: unknown) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";

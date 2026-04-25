@@ -5,17 +5,11 @@ import {
   computeCompositeDealScore,
   parseNumber,
 } from "../_shared/deal-feed.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type RequestPayload = {
   days?: number;
 };
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

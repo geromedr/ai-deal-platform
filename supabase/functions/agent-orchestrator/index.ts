@@ -5,19 +5,13 @@ import {
   insertRiskWithCompatibility,
   insertTaskWithCompatibility
 } from "../_shared/action-layer-compat.ts"
+import { jsonResponse } from "../_shared/utils.ts";
 
 type ActionDetails = Record<string, unknown>
 
 type AgentAction = {
   action: string
   details?: ActionDetails
-}
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  })
 }
 
 function cleanJsonBlock(text: string) {

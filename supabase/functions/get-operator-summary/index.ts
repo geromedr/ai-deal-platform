@@ -1,18 +1,12 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 const HIGH_PRIORITY_SCORE_THRESHOLD = 85;
 const HIGH_PRIORITY_DEAL_SCORE_THRESHOLD = 80;
 const RECENT_WINDOW_HOURS = 24;
 const REPORT_WINDOW_DAYS = 7;
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

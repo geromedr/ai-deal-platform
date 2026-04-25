@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type UsageRow = {
   agent_name?: string | null;
@@ -8,13 +9,6 @@ type UsageRow = {
   estimated_cost?: number | null;
   timestamp?: string | null;
 };
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type DiscoveryRequest = {
   source?: string
@@ -80,12 +81,6 @@ const MOCK_APPLICATIONS: MockPlanningApplication[] = [
   }
 ]
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  })
-}
 
 function normaliseStatuses(statuses: unknown) {
   if (!Array.isArray(statuses)) return ["Lodged", "In Assessment"]

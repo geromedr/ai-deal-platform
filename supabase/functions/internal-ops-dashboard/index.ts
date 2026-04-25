@@ -1,17 +1,11 @@
 import { serve } from "https://deno.land/std/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createClient } from "../_shared/debug-supabase.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type DashboardRequest = {
   action?: string;
   payload?: Record<string, unknown>;
 };
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function htmlResponse(html: string, status = 200) {
   return new Response(html, {
@@ -797,66 +791,158 @@ serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !serviceKey) {
-    return jsonResponse({ error: "Supabase environment variables not set" }, 500);
+    console.error("[internal-ops-dashboard] early return: missing env", {
+      supabaseUrlConfigured: Boolean(supabaseUrl),
+      serviceKeyConfigured: Boolean(serviceKey),
+    });
+    const response = jsonResponse({ error: "Supabase environment variables not set" }, 500);
+    console.log("[internal-ops-dashboard] final response payload", {
+      status: response.status,
+      payload: { error: "Supabase environment variables not set" },
+    });
+    return response;
   }
 
   if (req.method === "GET") {
-    return htmlResponse(renderDashboardHtml());
+    const response = htmlResponse(renderDashboardHtml());
+    console.log("[internal-ops-dashboard] final response payload", {
+      status: response.status,
+      payload: "html dashboard response",
+    });
+    return response;
   }
 
   if (req.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+    console.error("[internal-ops-dashboard] early return: method not allowed", {
+      method: req.method,
+    });
+    const response = jsonResponse({ error: "Method not allowed" }, 405);
+    console.log("[internal-ops-dashboard] final response payload", {
+      status: response.status,
+      payload: { error: "Method not allowed" },
+    });
+    return response;
   }
 
   try {
+    const rawBody = await req.clone().text();
+    console.log("[internal-ops-dashboard] incoming request body", rawBody);
     const body = await req.json() as DashboardRequest;
     const action = typeof body.action === "string" ? body.action : "";
     const payload = typeof body.payload === "object" && body.payload !== null
       ? body.payload as Record<string, unknown>
       : {};
+    console.log("[internal-ops-dashboard] normalized parameters", {
+      action,
+      payload,
+    });
 
     if (action === "bootstrap") {
-      return jsonResponse(await loadDashboardData(supabaseUrl, serviceKey, payload));
+      const responsePayload = await loadDashboardData(supabaseUrl, serviceKey, payload);
+      const response = jsonResponse(responsePayload);
+      console.log("[internal-ops-dashboard] final response payload", {
+        status: response.status,
+        payload: responsePayload,
+      });
+      return response;
     }
 
     if (action === "allocate-capital") {
-      return jsonResponse(await invokeFunction(supabaseUrl, serviceKey, "allocate-capital", {
+      const responsePayload = await invokeFunction(supabaseUrl, serviceKey, "allocate-capital", {
         capital_pool: Number(payload.capital_pool ?? 0),
         max_deals: Number(payload.max_deals ?? 5),
-      }));
+      });
+      const response = jsonResponse(responsePayload);
+      console.log("[internal-ops-dashboard] final response payload", {
+        status: response.status,
+        payload: responsePayload,
+      });
+      return response;
     }
 
     if (action === "update-deal-outcome") {
-      return jsonResponse(await invokeFunction(supabaseUrl, serviceKey, "update-deal-outcome", {
+      const responsePayload = await invokeFunction(supabaseUrl, serviceKey, "update-deal-outcome", {
         deal_id: payload.deal_id,
         outcome_type: payload.outcome_type,
         actual_return: payload.actual_return === "" ? undefined : Number(payload.actual_return),
         duration_days: payload.duration_days === "" ? undefined : Number(payload.duration_days),
-      }));
+      });
+      const response = jsonResponse(responsePayload);
+      console.log("[internal-ops-dashboard] final response payload", {
+        status: response.status,
+        payload: responsePayload,
+      });
+      return response;
     }
 
     if (action === "approve-queue") {
-      return jsonResponse(await invokeFunction(supabaseUrl, serviceKey, "approve-approval-queue", payload));
+      const responsePayload = await invokeFunction(supabaseUrl, serviceKey, "approve-approval-queue", payload);
+      const response = jsonResponse(responsePayload);
+      console.log("[internal-ops-dashboard] final response payload", {
+        status: response.status,
+        payload: responsePayload,
+      });
+      return response;
     }
 
     if (action === "run-health-check") {
-      return jsonResponse(await invokeFunction(supabaseUrl, serviceKey, "system-health-check", {}));
+      const responsePayload = await invokeFunction(supabaseUrl, serviceKey, "system-health-check", {});
+      const response = jsonResponse(responsePayload);
+      console.log("[internal-ops-dashboard] final response payload", {
+        status: response.status,
+        payload: responsePayload,
+      });
+      return response;
     }
 
     if (action === "cleanup") {
-      return jsonResponse(await invokeFunction(supabaseUrl, serviceKey, "cleanup", payload));
+      const responsePayload = await invokeFunction(supabaseUrl, serviceKey, "cleanup", payload);
+      const response = jsonResponse(responsePayload);
+      console.log("[internal-ops-dashboard] final response payload", {
+        status: response.status,
+        payload: responsePayload,
+      });
+      return response;
     }
 
     if (action === "generate-report") {
-      return jsonResponse(await invokeFunction(supabaseUrl, serviceKey, "generate-deal-report", { days: 7 }));
+      const responsePayload = await invokeFunction(supabaseUrl, serviceKey, "generate-deal-report", { days: 7 });
+      const response = jsonResponse(responsePayload);
+      console.log("[internal-ops-dashboard] final response payload", {
+        status: response.status,
+        payload: responsePayload,
+      });
+      return response;
     }
 
     if (action === "toggle-system") {
-      return jsonResponse(await invokeFunction(supabaseUrl, serviceKey, "update-system-settings", payload));
+      const responsePayload = await invokeFunction(supabaseUrl, serviceKey, "update-system-settings", payload);
+      const response = jsonResponse(responsePayload);
+      console.log("[internal-ops-dashboard] final response payload", {
+        status: response.status,
+        payload: responsePayload,
+      });
+      return response;
     }
 
-    return jsonResponse({ error: "Unsupported action" }, 400);
+    console.error("[internal-ops-dashboard] early return: unsupported action", {
+      action,
+      payload,
+    });
+    const response = jsonResponse({ error: "Unsupported action" }, 400);
+    console.log("[internal-ops-dashboard] final response payload", {
+      status: response.status,
+      payload: { error: "Unsupported action" },
+    });
+    return response;
   } catch (error) {
-    return jsonResponse({ error: getErrorMessage(error) }, 500);
+    console.error("[internal-ops-dashboard] handler exception", { error });
+    const responsePayload = { error: getErrorMessage(error) };
+    const response = jsonResponse(responsePayload, 500);
+    console.log("[internal-ops-dashboard] final response payload", {
+      status: response.status,
+      payload: responsePayload,
+    });
+    return response;
   }
 });

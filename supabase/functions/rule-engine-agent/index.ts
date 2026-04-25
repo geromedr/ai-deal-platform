@@ -6,6 +6,7 @@ import {
   queueRetryOperation,
   runWithRetries,
 } from "../_shared/agent-resilience.ts";
+import { isUuid, jsonResponse } from "../_shared/utils.ts";
 
 type RuleEngineEvent =
   | "post-ranking"
@@ -117,13 +118,6 @@ const SUPPORTED_EVENTS = new Set<RuleEngineEvent>([
   "post-financial",
 ]);
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
 function getEnvNumber(name: string, fallback: number) {
   const value = Deno.env.get(name);
   if (!value) return fallback;
@@ -135,12 +129,6 @@ function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Unknown error";
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value,
-  );
 }
 
 function buildHeaders(serviceKey: string, authorizationHeader: string | null) {

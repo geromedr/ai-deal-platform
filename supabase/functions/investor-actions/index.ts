@@ -7,6 +7,7 @@ import {
   executeContactInvestorAction,
   listSuggestedInvestorActions,
 } from "../_shared/investor-actions.ts";
+import { isRecord, isUuid, jsonResponse } from "../_shared/utils.ts";
 
 type RequestPayload = {
   deal_id?: string;
@@ -23,23 +24,6 @@ type RequestPayload = {
   suggestion_threshold?: number;
   suggest_only?: boolean;
 };
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value,
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

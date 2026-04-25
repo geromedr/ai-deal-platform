@@ -5,6 +5,7 @@ import {
   computeCompositeDealScore,
   parseNumber,
 } from "../_shared/deal-feed.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type RequestPayload = {
   limit?: number;
@@ -13,13 +14,6 @@ type RequestPayload = {
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { isUuid, jsonResponse } from "../_shared/utils.ts";
 
 type RankingRequest = {
   deal_id?: string
@@ -108,24 +109,11 @@ const WEIGHTS: Record<ScoringComponentKey, number> = {
   comparables: 10
 }
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  })
-}
-
 function parseNumberLoose(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null
   const cleaned = String(value).replace(/[^0-9.\-]/g, "")
   const parsed = Number(cleaned)
   return Number.isFinite(parsed) ? parsed : null
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value
-  )
 }
 
 function clamp(value: number, min = 0, max = 1) {

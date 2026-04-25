@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type Candidate = {
   source: string
@@ -15,13 +16,6 @@ type Candidate = {
   url?: string
   headline?: string
   raw_data?: Record<string, unknown>
-}
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  })
 }
 
 function getErrorMessage(error: unknown) {

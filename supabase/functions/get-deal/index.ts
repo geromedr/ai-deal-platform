@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createClient } from "../_shared/debug-supabase.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import {
   getErrorMessage,

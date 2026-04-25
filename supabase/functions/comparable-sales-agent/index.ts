@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type DealRow = {
   id: string
@@ -39,13 +40,6 @@ type ComparableSalesOutput = {
 
 type ComparableSalesEstimateRow = {
   id: string
-}
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  })
 }
 
 function cleanJsonBlock(text: string) {

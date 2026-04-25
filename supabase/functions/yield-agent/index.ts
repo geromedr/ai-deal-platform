@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type YieldRequest = {
   deal_id?: string
@@ -22,13 +23,6 @@ type ComparableSalesEstimateRow = {
 const DEFAULT_AVG_UNIT_SIZE = 90
 const DEFAULT_SALE_PRICE_PER_SQM = 11000
 const DEFAULT_BUILD_COST_PER_SQM = 4200
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  })
-}
 
 function parseNumeric(value: number | string | null | undefined, fallback: number) {
   if (typeof value === "number" && Number.isFinite(value)) {

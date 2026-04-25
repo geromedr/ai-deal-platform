@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { isUuid, jsonResponse } from "../_shared/utils.ts";
 
 type FinancialEngineRequest = {
   deal_id?: string
@@ -115,13 +116,6 @@ const DEFAULT_FALLBACK_SITE_AREA = 1000
 const DEFAULT_FALLBACK_FSR = 1
 const DEFAULT_AVG_UNIT_SIZE = 90
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" }
-  })
-}
-
 function parseNumberLoose(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value
@@ -157,12 +151,6 @@ function getEnvNumber(name: string, fallback: number) {
   const value = Deno.env.get(name)
   const parsed = parseNumberLoose(value)
   return parsed ?? fallback
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value
-  )
 }
 
 function getErrorMessage(error: unknown) {

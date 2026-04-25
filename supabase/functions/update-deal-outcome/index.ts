@@ -8,6 +8,7 @@ import {
   parseMargin,
   parseNumber,
 } from "../_shared/deal-feed.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type RequestPayload = {
   deal_id?: string;
@@ -19,13 +20,6 @@ type RequestPayload = {
 
 const AGENT_NAME = "update-deal-outcome";
 const ALLOWED_OUTCOMES = new Set(["won", "lost", "in_progress"]);
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

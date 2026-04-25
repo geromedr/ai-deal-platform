@@ -13,6 +13,7 @@ import {
   formatPercentLabel,
   formatTldrHierarchy,
 } from "../_shared/investor-outreach.ts";
+import { jsonResponse } from "../_shared/utils.ts";
 
 type DealRow = Record<string, unknown>;
 type InvestorRow = Record<string, unknown>;
@@ -43,13 +44,6 @@ type FailureStep =
   | "build_outreach"
   | "log_ai_action"
   | "request_handler";
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;

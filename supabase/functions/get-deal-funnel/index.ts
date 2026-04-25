@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { isRecord, jsonResponse } from "../_shared/utils.ts";
 
 const AGENT_NAME = "get-deal-funnel";
 const STAGES = ["active", "reviewing", "approved", "funded", "completed"] as const;
@@ -19,21 +20,10 @@ type TransitionRow = {
   payload?: Record<string, unknown> | null;
 };
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Unknown error";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function normalizeStatus(value: unknown): StageName | null {

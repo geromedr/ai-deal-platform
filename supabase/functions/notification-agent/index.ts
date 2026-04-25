@@ -13,6 +13,7 @@ import {
   notificationLevelAllows,
   parseNumber,
 } from "../_shared/deal-feed.ts";
+import { isUuid, jsonResponse } from "../_shared/utils.ts";
 
 type NotificationAgentRequest = {
   deal_feed_id?: string;
@@ -70,23 +71,10 @@ const DEFAULT_THROTTLE_MINUTES = 1440;
 const DEFAULT_WEBHOOK_MAX_RETRIES = 3;
 const DEFAULT_WEBHOOK_RETRY_DELAY_MS = 500;
 
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
-}
-
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return "Unknown error";
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value,
-  );
 }
 
 function getEnvNumber(name: string, fallback: number) {
