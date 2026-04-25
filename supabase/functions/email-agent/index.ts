@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { getErrorMessage } from "../_shared/utils.ts";
 
 serve(createAgentHandler({ agentName: "email-agent", requiredFields: [{ name: "sender", type: "string" }, { name: "subject", type: "string" }, { name: "body", type: "string" }, { name: "deal_id", type: "string", uuid: true }] }, async (req) => {
 
@@ -269,7 +270,7 @@ ${JSON.stringify(context)}
   } catch (error) {
 
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: getErrorMessage(error) }),
       { status: 500 }
     )
 

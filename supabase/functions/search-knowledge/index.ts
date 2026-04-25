@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { requireEnv } from "../_shared/utils.ts";
 
 serve(createAgentHandler({ agentName: "search-knowledge", requiredFields: [{ name: "query", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
@@ -41,8 +42,8 @@ serve(createAgentHandler({ agentName: "search-knowledge", requiredFields: [{ nam
     const embedding = embeddingData.data[0].embedding
 
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      requireEnv("SUPABASE_URL"),
+      requireEnv("SUPABASE_SERVICE_ROLE_KEY")
     )
 
     const { data } = await supabase.rpc("match_knowledge_chunks", {

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { requireEnv } from "../_shared/utils.ts";
 
 serve(createAgentHandler({ agentName: "add-knowledge-document", requiredFields: [{ name: "source_name", type: "string" }, { name: "content", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
@@ -15,8 +16,8 @@ serve(createAgentHandler({ agentName: "add-knowledge-document", requiredFields: 
     }
 
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      requireEnv("SUPABASE_URL"),
+      requireEnv("SUPABASE_SERVICE_ROLE_KEY")
     )
 
     const apiKey = Deno.env.get("OPENAI_API_KEY")

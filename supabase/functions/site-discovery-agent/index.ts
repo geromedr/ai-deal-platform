@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { triggerEvent } from "../_shared/event-dispatch-v2.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
-import { jsonResponse } from "../_shared/utils.ts";
+import { jsonResponse } from "../_shared/utils.ts" // requireEnv added below;
 
 type Candidate = {
   source: string
@@ -47,8 +47,8 @@ serve(createAgentHandler({ agentName: "site-discovery-agent", requiredFields: [{
       }, 400)
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const supabaseUrl = requireEnv("SUPABASE_URL")
+    const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY")
 
     const results: Record<string, unknown>[] = []
 

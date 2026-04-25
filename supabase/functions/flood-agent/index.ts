@@ -1,3 +1,4 @@
+import { getErrorMessage } from "../_shared/utils.ts" // requireEnv added below;
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
@@ -27,8 +28,8 @@ serve(createAgentHandler({ agentName: "flood-agent", requiredFields: [{ name: "d
       }), { status: 400 })
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const supabaseUrl = requireEnv("SUPABASE_URL")
+    const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY")
 
     console.log("Geocoding:", address)
 
@@ -116,7 +117,7 @@ serve(createAgentHandler({ agentName: "flood-agent", requiredFields: [{ name: "d
   } catch (error) {
 
     return new Response(JSON.stringify({
-      error: error.message
+      error: getErrorMessage(error)
     }), { status: 500 })
 
   }

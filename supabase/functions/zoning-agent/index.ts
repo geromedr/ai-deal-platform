@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { requireEnv } from "../_shared/utils.ts";
 
 serve(createAgentHandler({ agentName: "zoning-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "address", type: "string" }] }, async (req) => {
 
@@ -30,8 +31,8 @@ serve(createAgentHandler({ agentName: "zoning-agent", requiredFields: [{ name: "
       }), { status: 400 })
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const supabaseUrl = requireEnv("SUPABASE_URL")
+    const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY")
     const supabase = createClient(supabaseUrl, serviceKey)
 
     /*
@@ -49,7 +50,7 @@ serve(createAgentHandler({ agentName: "zoning-agent", requiredFields: [{ name: "
 
     const geoData = await geo.json()
 
-    if (!geoData.length) {
+    if (!Array.isArray(geoData) || geoData.length === 0) {
       return new Response(JSON.stringify({
         error: "Address not found",
         address_attempted: address

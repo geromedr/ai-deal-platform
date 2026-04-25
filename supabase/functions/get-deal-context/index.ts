@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import { getErrorMessage } from "../_shared/deal-context.ts";
-import { isUuid } from "../_shared/utils.ts";
+import { isUuid } from "../_shared/utils.ts" // requireEnv added below;
 
 type Row = Record<string, unknown>;
 
@@ -109,8 +109,8 @@ serve(
       }
 
       const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        requireEnv("SUPABASE_URL"),
+        requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
       );
 
       console.log("Incoming deal_id:", deal_id);

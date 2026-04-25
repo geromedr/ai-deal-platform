@@ -1,3 +1,4 @@
+import { getErrorMessage } from "../_shared/utils.ts" // requireEnv added below;
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { normalizeAgentActionRuleRow } from "../_shared/action-layer-compat.ts"
@@ -32,8 +33,8 @@ serve(createAgentHandler({ agentName: "get-agent-rules" }, async (req) => {
     }
 
     const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      requireEnv("SUPABASE_URL"),
+      requireEnv("SUPABASE_SERVICE_ROLE_KEY")
     )
 
     const { data, error } = await supabase
@@ -44,7 +45,7 @@ serve(createAgentHandler({ agentName: "get-agent-rules" }, async (req) => {
 
     if (error) {
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: getErrorMessage(error) }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       )
     }

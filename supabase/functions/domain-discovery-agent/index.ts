@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { requireEnv } from "../_shared/utils.ts";
 
 // Domain API v1 residential search response shape
 // Each element in the array is:
@@ -49,9 +50,9 @@ serve(createAgentHandler({ agentName: "domain-discovery-agent" }, async (req) =>
       return new Response(JSON.stringify({ error: "Missing suburbs[]" }), { status: 400 })
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    const domainApiKey = Deno.env.get("DOMAIN_API_KEY")!
+    const supabaseUrl = requireEnv("SUPABASE_URL")
+    const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY")
+    const domainApiKey = requireEnv("DOMAIN_API_KEY")
 
     const discovered = []
 

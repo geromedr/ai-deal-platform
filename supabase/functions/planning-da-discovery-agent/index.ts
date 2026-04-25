@@ -1,12 +1,13 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { requireEnv } from "../_shared/utils.ts";
 
 serve(createAgentHandler({ agentName: "planning-da-discovery-agent" }, async () => {
 
   try {
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const supabaseUrl = requireEnv("SUPABASE_URL")
+    const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY")
 
     /*
     NSW Planning Portal DA dataset

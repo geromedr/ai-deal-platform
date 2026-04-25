@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js";
+import { createClient } from "./debug-supabase.ts";
 
 type FieldType = "string" | "number" | "boolean" | "array" | "object";
 
@@ -72,14 +72,30 @@ function isUuid(value: string) {
   );
 }
 
-async function parseRequestPayload(req: Request): Promise<Record<string, unknown>> {
+async function parseRequestPayload(
+  req: Request,
+): Promise<{ rawBody: string; payload: Record<string, unknown> }> {
   const rawBody = await req.clone().text();
   const trimmed = rawBody.trim();
 
-  if (!trimmed) return {};
+  if (!trimmed) return { rawBody, payload: {} };
 
   const parsed = JSON.parse(trimmed);
-  return isRecord(parsed) ? parsed : {};
+  return {
+    rawBody,
+    payload: isRecord(parsed) ? parsed : {},
+  };
+}
+
+async function readResponsePayload(response: Response) {
+  const text = await response.clone().text();
+  if (!text.trim()) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 function normalizeFieldConfig(field: RequiredField) {
@@ -402,21 +418,32 @@ export function createAgentHandler(
     const startedAt = Date.now();
     const supabase = createServiceClient();
     let payload: Record<string, unknown> = {};
+    let rawRequestBody = "";
     let validationErrors: string[] = [];
     let responseStatus = 500;
     let response: Response | null = null;
     let errorMessage: string | null = null;
 
     if (req.method !== "POST") {
+      console.error(`[${config.agentName}] early return: method not allowed`, {
+        method: req.method,
+      });
       return jsonResponse({ error: "Method not allowed" }, 405);
     }
 
     try {
-      payload = await parseRequestPayload(req);
-    } catch {
+      const parsedRequest = await parseRequestPayload(req);
+      rawRequestBody = parsedRequest.rawBody;
+      payload = parsedRequest.payload;
+      console.log(`[${config.agentName}] incoming request body`, rawRequestBody);
+      console.log(`[${config.agentName}] normalized parameters`, payload);
+    } catch (error) {
       validationErrors = ["Invalid JSON body"];
       responseStatus = 400;
       errorMessage = "Invalid JSON body";
+      console.error(`[${config.agentName}] early return: invalid json body`, {
+        error,
+      });
       await upsertRegistryStatus(supabase, config, "error", errorMessage);
       await logExecution(supabase, config, {
         dealId: null,
@@ -428,7 +455,12 @@ export function createAgentHandler(
         requestPayload: payload,
         responseStatus,
       });
-      return jsonResponse({ error: "Invalid JSON body" }, 400);
+      response = jsonResponse({ error: "Invalid JSON body" }, 400);
+      console.log(`[${config.agentName}] final response payload`, {
+        status: response.status,
+        payload: await readResponsePayload(response),
+      });
+      return response;
     }
 
     validationErrors = validatePayload(payload, config.requiredFields ?? []);
@@ -440,6 +472,11 @@ export function createAgentHandler(
     if (validationErrors.length > 0) {
       responseStatus = 400;
       errorMessage = validationErrors.join("; ");
+      console.error(`[${config.agentName}] early return: validation failed`, {
+        validationErrors,
+        rawRequestBody,
+        payload,
+      });
       await upsertRegistryStatus(supabase, config, "error", errorMessage);
       await logExecution(supabase, config, {
         dealId: extractDealId(payload),
@@ -451,7 +488,7 @@ export function createAgentHandler(
         requestPayload: payload,
         responseStatus,
       });
-      return jsonResponse(
+      response = jsonResponse(
         {
           error: validationErrors[0],
           validation_errors: validationErrors,
@@ -459,12 +496,20 @@ export function createAgentHandler(
         },
         400,
       );
+      console.log(`[${config.agentName}] final response payload`, {
+        status: response.status,
+        payload: await readResponsePayload(response),
+      });
+      return response;
     }
 
     const systemEnabled = await readSystemEnabled(supabase);
     if (!systemEnabled && !config.allowWhenDisabled) {
       responseStatus = 503;
       errorMessage = "System is disabled by operator kill switch";
+      console.error(`[${config.agentName}] early return: system disabled`, {
+        payload,
+      });
       await upsertRegistryStatus(supabase, config, "error", errorMessage);
       await logExecution(supabase, config, {
         dealId: extractDealId(payload),
@@ -476,10 +521,15 @@ export function createAgentHandler(
         requestPayload: payload,
         responseStatus,
       });
-      return jsonResponse({
+      response = jsonResponse({
         error: errorMessage,
         system_enabled: false,
       }, 503);
+      console.log(`[${config.agentName}] final response payload`, {
+        status: response.status,
+        payload: await readResponsePayload(response),
+      });
+      return response;
     }
 
     const rateLimit = await isRateLimited(supabase, config);
@@ -487,6 +537,10 @@ export function createAgentHandler(
       responseStatus = 429;
       errorMessage =
         `Rate limit exceeded for ${config.agentName}: ${rateLimit.count}/${rateLimit.limit} calls in the last hour`;
+      console.error(`[${config.agentName}] early return: rate limited`, {
+        payload,
+        rateLimit,
+      });
       await upsertRegistryStatus(supabase, config, "error", errorMessage);
       await logExecution(supabase, config, {
         dealId: extractDealId(payload),
@@ -498,7 +552,7 @@ export function createAgentHandler(
         requestPayload: payload,
         responseStatus,
       });
-      return jsonResponse({
+      response = jsonResponse({
         error: errorMessage,
         rate_limit: {
           count: rateLimit.count,
@@ -506,6 +560,11 @@ export function createAgentHandler(
           window: "1h",
         },
       }, 429);
+      console.log(`[${config.agentName}] final response payload`, {
+        status: response.status,
+        payload: await readResponsePayload(response),
+      });
+      return response;
     }
 
     await upsertRegistryStatus(supabase, config, "running", null);
@@ -513,9 +572,20 @@ export function createAgentHandler(
     try {
       response = await handler(req);
       responseStatus = response.status;
+      if (responseStatus >= 400) {
+        console.error(`[${config.agentName}] early/error response`, {
+          status: responseStatus,
+          payload,
+          responsePayload: await readResponsePayload(response),
+        });
+      }
     } catch (error) {
       errorMessage = getErrorMessage(error);
       responseStatus = 500;
+      console.error(`[${config.agentName}] handler exception`, {
+        error,
+        payload,
+      });
       response = jsonResponse({ error: errorMessage }, 500);
     }
 
@@ -543,6 +613,11 @@ export function createAgentHandler(
       responseStatus,
     });
     await logUsageMetric(supabase, config, responseStatus);
+
+    console.log(`[${config.agentName}] final response payload`, {
+      status: response.status,
+      payload: await readResponsePayload(response),
+    });
 
     return response;
   };

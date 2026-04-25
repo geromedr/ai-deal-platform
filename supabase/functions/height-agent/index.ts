@@ -1,3 +1,4 @@
+import { getErrorMessage } from "../_shared/utils.ts" // requireEnv added below;
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 
@@ -27,8 +28,8 @@ serve(createAgentHandler({ agentName: "height-agent", requiredFields: [{ name: "
       }), { status: 400 })
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    const supabaseUrl = requireEnv("SUPABASE_URL")
+    const serviceKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY")
 
     const geo = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`
@@ -96,7 +97,7 @@ serve(createAgentHandler({ agentName: "height-agent", requiredFields: [{ name: "
 
   } catch (error) {
 
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+    return new Response(JSON.stringify({ error: getErrorMessage(error) }), { status: 500 })
 
   }
 
