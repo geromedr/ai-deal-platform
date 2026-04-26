@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/card";
 import DecisionHeader from "@/components/deal/decision-header";
 import BriefExportButton from "@/components/deal/brief-export-button";
+import RunPipelineButton from "@/components/deal/run-pipeline-button";
 import DealChat from "@/components/deal/deal-chat";
 import DealTimeline from "@/components/deal/deal-timeline";
 import DealReports from "@/components/deal/deal-reports";
@@ -640,7 +641,7 @@ async function DealWorkspaceContent({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <Badge variant="outline" className="bg-background/70">
               Deal Workspace
@@ -659,7 +660,9 @@ async function DealWorkspaceContent({
               {summary}
             </p>
           </div>
-
+          <div className="shrink-0 pt-1">
+            <RunPipelineButton dealId={dealId} address={address} />
+          </div>
         </div>
 
         <DecisionHeader
