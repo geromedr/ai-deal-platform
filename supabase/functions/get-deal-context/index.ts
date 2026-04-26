@@ -149,11 +149,17 @@ serve(
         );
       }
 
-      const { data: feed, error: feedError } = await supabase
+      // Use order+limit instead of maybeSingle() to safely handle deals
+      // that have accumulated multiple deal_feed rows across pipeline runs.
+      // maybeSingle() throws a range error when >1 rows exist, returning null
+      // and causing the score to drop to 0 on page refresh.
+      const { data: feedRows, error: feedError } = await supabase
         .from("deal_feed")
         .select("*")
         .eq("deal_id", deal_id)
-        .maybeSingle();
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      const feed = feedRows?.[0] ?? null;
       console.log("Full deal_feed row:", feed);
 
       if (feedError) {
