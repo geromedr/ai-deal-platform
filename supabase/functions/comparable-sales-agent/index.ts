@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import { jsonResponse } from "../_shared/utils.ts";
+import { callAIPrompt } from "../_shared/ai-client.ts";
 
 type DealRow = {
   id: string
@@ -88,11 +89,9 @@ serve(createAgentHandler({ agentName: "comparable-sales-agent", requiredFields: 
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-  const openaiKey = Deno.env.get("OPENAI_API_KEY")
 
   if (!supabaseUrl) return jsonResponse({ error: "SUPABASE_URL not set" }, 500)
   if (!serviceKey) return jsonResponse({ error: "SUPABASE_SERVICE_ROLE_KEY not set" }, 500)
-  if (!openaiKey) return jsonResponse({ error: "OPENAI_API_KEY not set" }, 500)
 
   const supabase = createClient(supabaseUrl, serviceKey)
 
@@ -231,28 +230,10 @@ Return JSON in this exact shape:
 }
 `
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: prompt
-      })
-    })
-
-    if (!openaiResponse.ok) {
-      const failureText = await openaiResponse.text()
-      throw new Error(`OpenAI request failed: ${failureText}`)
-    }
-
-    const openaiData = await openaiResponse.json()
-    const responseText = openaiData?.output?.[0]?.content?.[0]?.text
+    const { text: responseText, model, usage, cost_usd } = await callAIPrompt(prompt, { jsonMode: true })
 
     if (!responseText) {
-      throw new Error("OpenAI response did not include text output")
+      throw new Error("DeepSeek response did not include text output")
     }
 
     const parsed = JSON.parse(cleanJsonBlock(responseText)) as ComparableSalesOutput
@@ -274,7 +255,7 @@ Return JSON in this exact shape:
         estimated_sale_price_per_sqm: parsed.estimated_sale_price_per_sqm,
         currency: parsed.currency || "AUD",
         rationale: parsed.rationale,
-        model_name: "gpt-4.1-mini",
+        model_name: model,
         knowledge_context: knowledgeMatches,
         raw_output: parsed,
         status: "completed"
@@ -320,7 +301,10 @@ Return JSON in this exact shape:
           suburb,
           estimated_sale_price_per_sqm: parsed.estimated_sale_price_per_sqm,
           comparable_count: parsed.comparables.length
-        }
+        },
+        model_used: model,
+        total_tokens: usage?.total_tokens ?? null,
+        cost_usd,
       })
 
     if (actionError) throw actionError

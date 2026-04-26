@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import { getErrorMessage } from "../_shared/utils.ts";
+import { callAIPrompt } from "../_shared/ai-client.ts";
 
 serve(createAgentHandler({ agentName: "ai-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "prompt", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
@@ -15,12 +16,13 @@ serve(createAgentHandler({ agentName: "ai-agent", requiredFields: [{ name: "deal
   }
 
   try {
+    // OpenAI key is kept for embeddings only — completions use DeepSeek
     const openaiKey = Deno.env.get("OPENAI_API_KEY")
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
 
     if (!openaiKey) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), {
+      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set (required for embeddings)" }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
       })
@@ -128,15 +130,7 @@ ${content}`
           .join("\n\n---\n\n")
       : "No relevant knowledge found."
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: `
+    const { text: aiText, model, usage, cost_usd } = await callAIPrompt(`
 You are coordinating a property development deal.
 
 You may return the following actions:
@@ -170,16 +164,9 @@ ${prompt}
 
 Relevant Knowledge:
 ${formattedKnowledge}
-`
-      })
-    })
+`, { jsonMode: true })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`OpenAI reasoning request failed: ${errorText}`)
-    }
-
-    const data = await response.json()
+    const data = { output_text: aiText, model, usage }
 
     await supabase.from("ai_actions").insert({
       deal_id,
@@ -193,7 +180,10 @@ ${formattedKnowledge}
         retrieved_knowledge: knowledgeResults,
         model_response: data
       },
-      source: "ai-agent"
+      source: "ai-agent",
+      model_used: model,
+      total_tokens: usage?.total_tokens ?? null,
+      cost_usd,
     })
 
     return new Response(
@@ -201,7 +191,7 @@ ${formattedKnowledge}
         status: "success",
         deal_id,
         knowledge_used: knowledgeResults,
-        ai_result: data
+        ai_result: { text: aiText, model, usage }
       }),
       {
         headers: { "Content-Type": "application/json" }

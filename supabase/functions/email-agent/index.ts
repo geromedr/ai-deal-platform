@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import { getErrorMessage } from "../_shared/utils.ts";
+import { callAI } from "../_shared/ai-client.ts";
 
 serve(createAgentHandler({ agentName: "email-agent", requiredFields: [{ name: "sender", type: "string" }, { name: "subject", type: "string" }, { name: "body", type: "string" }, { name: "deal_id", type: "string", uuid: true }] }, async (req) => {
 
@@ -13,17 +14,9 @@ serve(createAgentHandler({ agentName: "email-agent", requiredFields: [{ name: "s
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")
-    const openaiKey = Deno.env.get("OPENAI_API_KEY")
 
     if (!supabaseUrl || !serviceKey || !anonKey) {
       return new Response(JSON.stringify({ error: "Supabase environment variables not set" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      })
-    }
-
-    if (!openaiKey) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), {
         status: 500,
         headers: { "Content-Type": "application/json" }
       })
@@ -46,42 +39,17 @@ serve(createAgentHandler({ agentName: "email-agent", requiredFields: [{ name: "s
     let detectedAddress = null
 
     try {
-
-      const addressResponse = await fetch(
-        "https://api.openai.com/v1/chat/completions",
+      const { text: addressText } = await callAI([
         {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${openaiKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content: "Extract a property address from the email text. Return only the address or null."
-              },
-              {
-                role: "user",
-                content: body
-              }
-            ]
-          })
-        }
-      )
-
-      const addressData = await addressResponse.json()
-
-      detectedAddress =
-        addressData?.choices?.[0]?.message?.content?.trim()
-
+          role: "system",
+          content: "Extract a property address from the email text. Return only the address string, or the word null if no address is present."
+        },
+        { role: "user", content: body }
+      ])
+      detectedAddress = addressText?.trim() ?? null
       console.log("Detected address:", detectedAddress)
-
     } catch (err) {
-
-      console.log("Address extraction failed")
-
+      console.log("Address extraction failed:", (err as Error).message)
     }
 
     /*

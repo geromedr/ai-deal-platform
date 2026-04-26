@@ -2,24 +2,17 @@ import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import { getErrorMessage } from "../_shared/utils.ts";
+import { callAIPrompt } from "../_shared/ai-client.ts";
 
 serve(createAgentHandler({ agentName: "deal-intelligence", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-    const openaiKey = Deno.env.get("OPENAI_API_KEY")
 
     if (!supabaseUrl || !serviceKey) {
       return new Response(
         JSON.stringify({ error: "Supabase environment variables not set" }),
-        { status: 500 }
-      )
-    }
-
-    if (!openaiKey) {
-      return new Response(
-        JSON.stringify({ error: "OPENAI_API_KEY not set" }),
         { status: 500 }
       )
     }
@@ -81,27 +74,9 @@ Return JSON:
 }
 `
 
-    const aiResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: analysisPrompt
-      })
-    })
+    const { text, model, usage, cost_usd } = await callAIPrompt(analysisPrompt, { jsonMode: true })
 
-    const aiData = await aiResponse.json()
-
-    const text = aiData.output[0].content[0].text
-
-    const clean = text
-      .replace("```json", "")
-      .replace("```", "")
-      .trim()
-
+    const clean = text.replace(/```json|```/g, "").trim()
     const parsed = JSON.parse(clean)
 
     for (const risk of parsed.risks || []) {
@@ -141,7 +116,10 @@ Return JSON:
       deal_id,
       agent: "deal-intelligence",
       action: "analysis_completed",
-      payload: parsed
+      payload: parsed,
+      model_used: model,
+      total_tokens: usage?.total_tokens ?? null,
+      cost_usd,
     })
 
     return new Response(

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
+import { callAIPrompt } from "../_shared/ai-client.ts";
 
 serve(createAgentHandler({ agentName: "deal-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }] }, async (req) => {
 
@@ -8,18 +9,10 @@ serve(createAgentHandler({ agentName: "deal-agent", requiredFields: [{ name: "de
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")
-    const openaiKey = Deno.env.get("OPENAI_API_KEY")
 
     if (!supabaseUrl || !serviceKey || !anonKey) {
       return new Response(
         JSON.stringify({ error: "Supabase environment variables not set" }),
-        { status: 500 }
-      )
-    }
-
-    if (!openaiKey) {
-      return new Response(
-        JSON.stringify({ error: "OPENAI_API_KEY not set" }),
         { status: 500 }
       )
     }
@@ -62,16 +55,8 @@ serve(createAgentHandler({ agentName: "deal-agent", requiredFields: [{ name: "de
 
     const context = await contextResponse.json()
 
-    // Ask OpenAI what to do next
-    const openaiResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: `
+    // Ask DeepSeek what to do next
+    const { text: decisionText } = await callAIPrompt(`
 You are an AI property development project manager.
 
 Your job is to advance development deals logically and professionally.
@@ -96,13 +81,7 @@ Respond ONLY in JSON format:
  "title": "...",
  "description": "..."
 }
-`
-      })
-    })
-
-    const aiOutput = await openaiResponse.json()
-
-    const decisionText = aiOutput.output[0].content[0].text
+`, { jsonMode: true })
 
     const decision = JSON.parse(decisionText)
 
