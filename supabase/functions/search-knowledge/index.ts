@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import { requireEnv } from "../_shared/utils.ts";
+import { generateEmbedding } from "../_shared/embeddings.ts";
 
 serve(createAgentHandler({ agentName: "search-knowledge", requiredFields: [{ name: "query", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
@@ -15,31 +16,7 @@ serve(createAgentHandler({ agentName: "search-knowledge", requiredFields: [{ nam
       return new Response(JSON.stringify({ error: "Missing query" }), { status: 400 })
     }
 
-    const apiKey = Deno.env.get("OPENAI_API_KEY")
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set" }), { status: 500 })
-    }
-
-    const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: "text-embedding-3-small",
-        input: query
-      })
-    })
-
-    if (!embeddingResponse.ok) {
-      const errorText = await embeddingResponse.text()
-      throw new Error(`Embedding request failed: ${errorText}`)
-    }
-
-    const embeddingData = await embeddingResponse.json()
-
-    const embedding = embeddingData.data[0].embedding
+    const embedding = await generateEmbedding(query, "retrieval.query")
 
     const supabase = createClient(
       requireEnv("SUPABASE_URL"),
@@ -63,4 +40,3 @@ serve(createAgentHandler({ agentName: "search-knowledge", requiredFields: [{ nam
   }
 
 }));
-

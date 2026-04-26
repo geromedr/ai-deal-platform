@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js"
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import { getErrorMessage } from "../_shared/utils.ts";
 import { callAIPrompt } from "../_shared/ai-client.ts";
+import { generateEmbedding } from "../_shared/embeddings.ts";
 
 serve(createAgentHandler({ agentName: "ai-agent", requiredFields: [{ name: "deal_id", type: "string", uuid: true }, { name: "prompt", type: "string" }] }, async (req) => {
   if (req.method !== "POST") {
@@ -16,17 +17,8 @@ serve(createAgentHandler({ agentName: "ai-agent", requiredFields: [{ name: "deal
   }
 
   try {
-    // OpenAI key is kept for embeddings only — completions use DeepSeek
-    const openaiKey = Deno.env.get("OPENAI_API_KEY")
     const supabaseUrl = Deno.env.get("SUPABASE_URL")
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
-
-    if (!openaiKey) {
-      return new Response(JSON.stringify({ error: "OPENAI_API_KEY not set (required for embeddings)" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      })
-    }
 
     if (!supabaseUrl || !serviceKey) {
       return new Response(JSON.stringify({ error: "Supabase environment variables not set" }), {
@@ -62,30 +54,8 @@ serve(createAgentHandler({ agentName: "ai-agent", requiredFields: [{ name: "deal
 
     const ragQuery = knowledge_query || prompt
 
-    // Create embedding for knowledge search
-    const embeddingResponse = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify({
-        model: "text-embedding-3-small",
-        input: ragQuery
-      })
-    })
-
-    if (!embeddingResponse.ok) {
-      const errorText = await embeddingResponse.text()
-      throw new Error(`Embedding request failed: ${errorText}`)
-    }
-
-    const embeddingData = await embeddingResponse.json()
-    const queryEmbedding = embeddingData?.data?.[0]?.embedding
-
-    if (!queryEmbedding) {
-      throw new Error("Failed to generate query embedding")
-    }
+    // Create embedding for knowledge search (Jina AI)
+    const queryEmbedding = await generateEmbedding(ragQuery, "retrieval.query")
 
     // Search vector knowledge base
     let knowledgeResults: any[] = []
