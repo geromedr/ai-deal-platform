@@ -1,4 +1,5 @@
 .env
+*.env.*
 *.log
 
 # Deno cache
@@ -9,6 +10,7 @@
 
 # Node
 node_modules/
+.npm/
 
 # Supabase CLI temp
 supabase/.temp/
@@ -20,3 +22,21 @@ ai-deal-ui/out/
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.cursor/
+.cursorrules
+*.swp
+*.swo
+
+# SSH / local credentials
+.git-ssh/
+
+# Backup docs (not versioned)
+docs_backup_original/
+
+# Local test outputs
+test-results/
+playwright-report/
