@@ -808,26 +808,36 @@ async function DealWorkspaceContent({
                   </div>
                   {financials.length > 0 && (
                     <div className="overflow-hidden rounded-xl border border-border/70">
-                      <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-border/70 bg-background/60 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                        <span>Category</span>
-                        <span className="text-right">Amount</span>
+                      <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-2 border-b border-border/70 bg-background/60 px-3 py-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                        <span>Run</span>
+                        <span className="text-right">GDV</span>
+                        <span className="text-right">TDC</span>
+                        <span className="text-right">Profit</span>
+                        <span className="text-right">Margin</span>
                       </div>
                       <div className="divide-y divide-border/70">
                         {financials.map((snap, index) => {
-                          const cat = asString(snap.category) ?? `Snapshot ${index + 1}`;
-                          const amt = asNumber(snap.amount);
                           const gdvVal = asNumber(snap.gdv);
                           const tdcVal = asNumber(snap.tdc);
-                          const displayAmt = amt ?? gdvVal ?? tdcVal;
+                          const profitVal = asNumber(snap.amount);
+                          const derivedMargin =
+                            gdvVal !== null && tdcVal !== null && gdvVal > 0
+                              ? (gdvVal - tdcVal) / gdvVal
+                              : null;
+                          const runDate = asString(snap.created_at);
+                          const runLabel = runDate
+                            ? new Date(runDate).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "2-digit" })
+                            : `Run ${index + 1}`;
                           return (
                             <div
                               key={String(snap.id ?? index)}
-                              className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2.5 text-sm"
+                              className="grid grid-cols-[1.4fr_1fr_1fr_1fr_1fr] gap-2 px-3 py-2.5 text-sm"
                             >
-                              <span className="text-foreground">{sentenceCase(cat)}</span>
-                              <span className="text-right font-medium text-foreground">
-                                {displayAmt !== null ? formatCurrency(displayAmt) : "—"}
-                              </span>
+                              <span className="text-foreground font-medium">{runLabel}</span>
+                              <span className="text-right text-muted-foreground">{gdvVal !== null ? formatCurrency(gdvVal) : "—"}</span>
+                              <span className="text-right text-muted-foreground">{tdcVal !== null ? formatCurrency(tdcVal) : "—"}</span>
+                              <span className="text-right font-medium text-foreground">{profitVal !== null ? formatCurrency(profitVal) : "—"}</span>
+                              <span className="text-right text-muted-foreground">{derivedMargin !== null ? formatPercent(derivedMargin) : "—"}</span>
                             </div>
                           );
                         })}
