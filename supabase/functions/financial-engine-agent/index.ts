@@ -721,6 +721,14 @@ serve(createAgentHandler({ agentName: "financial-engine-agent", requiredFields: 
     let snapshotId: string | null = null
 
     try {
+      // Delete any existing financial-engine snapshots for this deal so each
+      // pipeline run replaces rather than accumulates rows.
+      await supabase
+        .from("financial_snapshots")
+        .delete()
+        .eq("deal_id", deal_id)
+        .eq("category", "financial-engine")
+
       const { data: snapshotData, error: snapshotError } = await supabase
         .from("financial_snapshots")
         .insert(snapshotPayload)
