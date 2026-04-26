@@ -854,9 +854,8 @@ ${JSON.stringify(report, null, 2)}
     if (aiResponse.success) {
       try {
         const aiData = aiResponse.data as Record<string, unknown>
-        const responseText = (
-          aiData?.ai_result as { output?: Array<{ content?: Array<{ text?: string }> }> } | undefined
-        )?.output?.[0]?.content?.[0]?.text
+        // ai-agent returns { ai_result: { text: "..." } } after DeepSeek migration
+        const responseText = (aiData?.ai_result as { text?: string } | undefined)?.text
 
         if (typeof responseText === "string" && responseText.trim()) {
           const parsed = JSON.parse(cleanJsonBlock(responseText))
