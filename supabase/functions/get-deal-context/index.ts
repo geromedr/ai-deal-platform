@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js";
 import { createAgentHandler } from "../_shared/agent-runtime.ts";
 import { getErrorMessage } from "../_shared/deal-context.ts";
-import { isUuid } from "../_shared/utils.ts" // requireEnv added below;
+import { isUuid, requireEnv } from "../_shared/utils.ts";
 
 type Row = Record<string, unknown>;
 
