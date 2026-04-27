@@ -79,6 +79,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Build the prompt including conversation history so the agent has context
+    const history = messages.slice(0, -1);
+    const historyText = history.length > 0
+      ? history
+          .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+          .join("\n") + "\n\n"
+      : "";
+    const fullPrompt = `${buildSystemPrompt(dealId, dealContext)}\n\n${historyText}User: ${lastUserMessage.content}`;
+
     // Call the ai-agent edge function which handles RAG + DeepSeek reasoning
     const agentRes = await fetch(`${supabaseUrl}/functions/v1/ai-agent`, {
       method: "POST",
@@ -89,9 +98,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         deal_id: dealId,
-        message: lastUserMessage.content,
-        system_prompt: buildSystemPrompt(dealId, dealContext),
-        conversation_history: messages.slice(0, -1), // exclude the last user msg (sent as `message`)
+        prompt: fullPrompt,
+        knowledge_query: lastUserMessage.content, // use the raw user question for RAG search
       }),
     });
 
@@ -113,14 +121,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: errMsg }, { status: 502 });
     }
 
-    // ai-agent returns { reply: string } or { message: string }
+    // ai-agent returns { ai_result: { text: string }, status, deal_id, ... }
+    const aiResult = agentJson.ai_result as Record<string, unknown> | undefined;
     const replyText =
-      typeof agentJson.reply === "string"
-        ? agentJson.reply
-        : typeof agentJson.message === "string"
-          ? agentJson.message
-          : typeof agentJson.text === "string"
-            ? agentJson.text
+      typeof aiResult?.text === "string" && aiResult.text.trim().length > 0
+        ? aiResult.text
+        : typeof agentJson.reply === "string"
+          ? agentJson.reply
+          : typeof agentJson.message === "string"
+            ? agentJson.message
             : "I wasn't able to generate a response. Please try again.";
 
     const reply: ChatMessage = { role: "assistant", content: replyText };
