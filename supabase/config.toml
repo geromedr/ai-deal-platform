@@ -727,3 +727,13 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/investor-actions/deno.json"
 entrypoint = "./functions/investor-actions/index.ts"
+
+[functions.investor-outreach]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/investor-outreach/index.ts"
+
+[functions.submit-decision]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/submit-decision/index.ts"

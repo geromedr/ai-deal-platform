@@ -23,56 +23,30 @@ export type DealChatResponse = {
   error?: string;
 };
 
-// Stub responses keyed by simple keyword matches.
-// Replace this function body with a real LLM call when AI_ENABLED=true.
-function generateStubReply(
-  userMessage: string,
+function buildSystemPrompt(
+  dealId: string,
   context: DealChatRequest["dealContext"],
 ): string {
-  const msg = userMessage.toLowerCase();
   const name = context?.dealName ?? context?.address ?? "this deal";
-  const score = context?.score;
-  const strategy = context?.strategy ?? "unknown strategy";
-  const stage = context?.stage ?? "unknown stage";
+  const parts: string[] = [
+    `You are a deal analysis assistant for a property development platform.`,
+    `You are helping an operator review deal ID: ${dealId} — "${name}".`,
+  ];
 
-  if (msg.includes("score") || msg.includes("rating")) {
-    return score !== null && score !== undefined
-      ? `The current priority score for ${name} is **${score}**. Scores above 85 are flagged as High Value; above 60 as Watchlist. You may want to check if the underlying deal_feed entry has a fresh scoring run.`
-      : `No score has been computed for ${name} yet — it doesn't have a deal_feed entry. You can trigger a scoring run from the triage workflow.`;
+  if (context?.score !== null && context?.score !== undefined) {
+    parts.push(`Current priority score: ${context.score}/100.`);
   }
+  if (context?.strategy) parts.push(`Strategy: ${context.strategy}.`);
+  if (context?.stage) parts.push(`Stage: ${context.stage}.`);
+  if (context?.summary) parts.push(`Deal summary: ${context.summary}`);
 
-  if (msg.includes("risk") || msg.includes("concern")) {
-    return `Risk review for ${name}: the workspace shows the active risk items in the Risks card. For a full assessment, I'd look at flood exposure from site_intelligence and any open due-diligence tasks. Want me to summarise the highest-severity items?`;
-  }
+  parts.push(
+    `Answer questions about this deal concisely and accurately. ` +
+    `If you don't have enough data to answer something, say so clearly rather than guessing. ` +
+    `Use markdown for formatting where helpful.`,
+  );
 
-  if (msg.includes("financial") || msg.includes("gdv") || msg.includes("tdc") || msg.includes("margin") || msg.includes("profit")) {
-    return `Financials for ${name} are pulled from the latest financial_snapshots row. Key metrics are GDV (gross development value), TDC (total development cost), and derived margin. If those fields are showing "—" it means no snapshot has been logged yet — you can add one via the Supabase dashboard.`;
-  }
-
-  if (msg.includes("strategy") || msg.includes("approach")) {
-    return `The current strategy for ${name} is **${strategy}**. If you want to change or refine the strategy classification, update the \`strategy\` column on the deals table row.`;
-  }
-
-  if (msg.includes("stage") || msg.includes("status")) {
-    return `${name} is currently at stage **${stage}**. You can move it between stages (active, archived, etc.) from the Supabase dashboard or via the decision workflow.`;
-  }
-
-  if (msg.includes("summar") || msg.includes("overview") || msg.includes("tldr")) {
-    const summary = context?.summary;
-    return summary
-      ? `Here's the deal summary on file: "${summary}". The workspace TLDR bullets above derive from live deal data — score, margin, zoning, and risk flags.`
-      : `No summary is stored for ${name} yet. The TLDR section in the workspace is generated from live data fields (score, margin, risks, zoning). You can add a human-written summary to the deal_feed row.`;
-  }
-
-  if (msg.includes("next step") || msg.includes("what should") || msg.includes("recommend")) {
-    return `For ${name} at stage **${stage}**: typical next steps would be (1) confirm financial snapshot is up to date, (2) close any open due-diligence tasks, (3) run a fresh scoring pass to update priority_score, and (4) log a decision (BUY / REVIEW / PASS) via the decision header above.`;
-  }
-
-  if (msg.includes("hello") || msg.includes("hi") || msg.includes("hey")) {
-    return `Hi! I'm the deal assistant for ${name}. Ask me about the score, financials, risks, strategy, or next steps for this deal.`;
-  }
-
-  return `I can help you analyse ${name}. Try asking about the score, financial metrics (GDV / TDC / margin), risks, current stage, or recommended next steps.`;
+  return parts.join(" ");
 }
 
 export async function POST(req: NextRequest) {
@@ -95,12 +69,61 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: replace generateStubReply() with a real LLM call when ready.
-    // Set AI_ENABLED=true in .env.local and implement the real path here
-    // (e.g. stream from Anthropic using dealContext as the system prompt).
-    const replyContent = generateStubReply(lastUserMessage.content, dealContext);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    const reply: ChatMessage = { role: "assistant", content: replyContent };
+    if (!supabaseUrl || !anonKey) {
+      return NextResponse.json(
+        { error: "Supabase environment variables are not configured." },
+        { status: 500 },
+      );
+    }
+
+    // Call the ai-agent edge function which handles RAG + DeepSeek reasoning
+    const agentRes = await fetch(`${supabaseUrl}/functions/v1/ai-agent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
+      },
+      body: JSON.stringify({
+        deal_id: dealId,
+        message: lastUserMessage.content,
+        system_prompt: buildSystemPrompt(dealId, dealContext),
+        conversation_history: messages.slice(0, -1), // exclude the last user msg (sent as `message`)
+      }),
+    });
+
+    let agentJson: Record<string, unknown>;
+    try {
+      agentJson = (await agentRes.json()) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { error: `ai-agent returned non-JSON (status ${agentRes.status})` },
+        { status: 502 },
+      );
+    }
+
+    if (!agentRes.ok) {
+      const errMsg =
+        typeof agentJson.error === "string"
+          ? agentJson.error
+          : `ai-agent failed (status ${agentRes.status})`;
+      return NextResponse.json({ error: errMsg }, { status: 502 });
+    }
+
+    // ai-agent returns { reply: string } or { message: string }
+    const replyText =
+      typeof agentJson.reply === "string"
+        ? agentJson.reply
+        : typeof agentJson.message === "string"
+          ? agentJson.message
+          : typeof agentJson.text === "string"
+            ? agentJson.text
+            : "I wasn't able to generate a response. Please try again.";
+
+    const reply: ChatMessage = { role: "assistant", content: replyText };
     return NextResponse.json({ message: reply } satisfies DealChatResponse);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
