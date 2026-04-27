@@ -13,11 +13,42 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install Supabase CLI
-        run: npm install -g supabase
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-      - name: Deploy functions
+      - name: Install Supabase CLI
+        run: npm install -g supabase@latest
+
+      - name: Deploy all edge functions
         run: supabase functions deploy --project-ref $PROJECT_REF
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_REF: ${{ secrets.PROJECT_REF }}
+
+  test-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ai-deal-ui/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ai-deal-ui
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ai-deal-ui
+        run: npm run test
+
+      - name: Type check
+        working-directory: ai-deal-ui
+        run: npx tsc --noEmit
