@@ -69,7 +69,7 @@ describe("formatPercent", () => {
     expect(formatPercent(1)).toBe("100%");
   });
   it("handles 0%", () => {
-    expect(formatPercent(0)).toBe("Not available"); // 0 is falsy → null check
+    expect(formatPercent(0)).toBe("0%");
   });
 });
 
