@@ -464,6 +464,7 @@ async function DealWorkspaceContent({
   const marginExplicit =
     firstNumber(latestFinancial, [
       "margin_pct",
+      "metadata.feasibility.margin",  // financial-engine stores margin here
       "metadata.margin_pct",
       "metadata.margin",
       "metadata.profit_margin_pct",
@@ -546,9 +547,9 @@ async function DealWorkspaceContent({
   const latestTdc =
     firstNumber(latestFinancial, ["tdc", "metadata.tdc", "metadata.estimated_total_cost"]) ??
     firstNumber(siteIntelligence, ["estimated_build_cost"]);
-  // Profit: prefer explicit field, fall back to derived GDV − TDC
+  // Profit: financial-engine stores profit in `amount`; also check feasibility metadata
   const latestProfitExplicit =
-    firstNumber(latestFinancial, ["profit", "metadata.estimated_profit", "metadata.profit"]) ??
+    firstNumber(latestFinancial, ["amount", "profit", "metadata.feasibility.profit", "metadata.estimated_profit", "metadata.profit"]) ??
     firstNumber(siteIntelligence, ["estimated_profit"]);
   const latestProfit =
     latestProfitExplicit ??
